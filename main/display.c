@@ -1,4 +1,5 @@
 /* File: display.c */
+
 #include "display.h"
 #include "display_config.h"
 #include "ili9341.h"
@@ -9,81 +10,127 @@
 #include "button_events.h"
 #include "mode_manager.h"
 
+#include <stdio.h>
+#include <stdint.h>
+#include "freertos/semphr.h"
+#include "freertos/queue.h"
+#include "freertos/event_groups.h"
+
+/* Static panels — avoid stack usage in display_task */
+static panel_t p_min;
+static panel_t p_sec;
+static panel_t p_dec;
+
+/* Queue for mode change notifications */
 static QueueHandle_t xDisplayQueue = NULL;
 
 void display_init(void)
 {
     ILI9341Init();
     ILI9341Rotate(ILI9341_Landscape_1);
+
+    /* Initialize digit panels once */
+    p_min = CrearPanel( 30, 60, 2,
+                        DIGITO_ALTO, DIGITO_ANCHO,
+                        DIGITO_ENCENDIDO, DIGITO_APAGADO, DIGITO_FONDO);
+    p_sec = CrearPanel(170, 60, 2,
+                        DIGITO_ALTO, DIGITO_ANCHO,
+                        DIGITO_ENCENDIDO, DIGITO_APAGADO, DIGITO_FONDO);
+    p_dec = CrearPanel(310, 60, 2,
+                        DIGITO_ALTO, DIGITO_ANCHO,
+                        DIGITO_ENCENDIDO, DIGITO_APAGADO, DIGITO_FONDO);
+
+    /* Create queue for mode changes */
     xDisplayQueue = xQueueCreate(1, sizeof(mode_t));
+    /* Trigger initial draw */
     display_request_update();
 }
 
 void display_request_update(void)
 {
-    mode_t m = current_mode;
-    xQueueOverwrite(xDisplayQueue, &m);
+    if (xDisplayQueue) {
+        mode_t m = current_mode;
+        xQueueOverwrite(xDisplayQueue, &m);
+    }
 }
-
-/* Paneles estáticos para no consumir pila en la tarea */
-static panel_t p_min;
-static panel_t p_sec;
-static panel_t p_dec;
-
 
 void display_task(void *pvParameters)
 {
     mode_t m;
-    char buf[16];
-    panel_t p_min = CrearPanel( 30, 60, 2, DIGITO_ALTO, DIGITO_ANCHO, DIGITO_ENCENDIDO, DIGITO_APAGADO, DIGITO_FONDO);
-    panel_t p_sec = CrearPanel(170, 60, 2, DIGITO_ALTO, DIGITO_ANCHO, DIGITO_ENCENDIDO, DIGITO_APAGADO, DIGITO_FONDO);
-    panel_t p_dec = CrearPanel(310, 60, 2, DIGITO_ALTO, DIGITO_ANCHO, DIGITO_ENCENDIDO, DIGITO_APAGADO, DIGITO_FONDO);
+    char   buf[32];
 
     for (;;) {
-        if (xQueueReceive(xDisplayQueue, &m, portMAX_DELAY) == pdTRUE) {
-            /* clear screen */
+        if (xDisplayQueue &&
+            xQueueReceive(xDisplayQueue, &m, portMAX_DELAY) == pdTRUE)
+        {
+            /* 1) Clear screen */
             ILI9341Fill(DIGITO_FONDO);
-            /* top-right mode */
+
+            /* 2) Draw mode indicator top-right */
             const char *mode_str = "";
             switch (m) {
-            case MODE_CLOCK:      mode_str = "CLOCK"; break;
-            case MODE_CLOCK_SET:  mode_str = "CLK-SET"; break;
-            case MODE_ALARM:      mode_str = " ALARM"; break;
-            case MODE_ALARM_SET:  mode_str = "AL.SET"; break;
-            case MODE_CHRONO:     mode_str = "CHRONO"; break;
-            case MODE_ALARM_RING: mode_str = "!RING!"; break;
+            case MODE_CLOCK:      mode_str = "CLOCK";    break;
+            case MODE_CLOCK_SET:  mode_str = "CLK-SET";  break;
+            case MODE_ALARM:      mode_str = " ALARM";   break;
+            case MODE_ALARM_SET:  mode_str = "AL-SET";   break;
+            case MODE_CHRONO:     mode_str = "CHRONO";   break;
+            case MODE_ALARM_RING: mode_str = "!RING!";   break;
             }
-            ILI9341DrawString(350, 10, (char*)mode_str, &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
+            ILI9341DrawString(350, 10,
+                              (char*)mode_str, &font_7x10,
+                              ILI9341_WHITE, DIGITO_FONDO);
 
-            /* main display */
+            /* 3) Main display area */
             if (m == MODE_CLOCK || m == MODE_CLOCK_SET) {
-                snprintf(buf, sizeof(buf), "%02u:%02u:%02u", clk_h, clk_m, clk_s);
-                ILI9341DrawString(80, 200, buf, &font_16x26, ILI9341_WHITE, DIGITO_FONDO);
+                /* Display real-time clock HH:MM:SS */
+                snprintf(buf, sizeof(buf), "%02u:%02u:%02u",
+                         clk_h, clk_m, clk_s);
+                ILI9341DrawString(80, 200,
+                                  buf, &font_16x26,
+                                  ILI9341_WHITE, DIGITO_FONDO);
+
             } else if (m == MODE_ALARM || m == MODE_ALARM_SET) {
-                snprintf(buf, sizeof(buf), "%02u:%02u", al_h, al_m);
-                ILI9341DrawString(100, 200, buf, &font_16x26, ILI9341_WHITE, DIGITO_FONDO);
+                /* Display alarm time HH:MM */
+                snprintf(buf, sizeof(buf), "%02u:%02u",
+                         al_h, al_m);
+                ILI9341DrawString(100, 200,
+                                  buf, &font_16x26,
+                                  ILI9341_WHITE, DIGITO_FONDO);
+
             } else if (m == MODE_CHRONO) {
+                /* Display stopwatch with large digits */
                 uint32_t tot;
                 xSemaphoreTake(sem_decimas, portMAX_DELAY);
                 tot = decimas;
                 xSemaphoreGive(sem_decimas);
+
                 uint32_t mi = tot / 6000;
                 uint32_t se = (tot / 100) % 60;
                 uint32_t de = tot % 100;
-                DibujarDigito(p_min, 0, mi/10);
-                DibujarDigito(p_min, 1, mi%10);
-                DibujarDigito(p_sec, 0, se/10);
-                DibujarDigito(p_sec, 1, se%10);
-                DibujarDigito(p_dec, 0, de/10);
-                DibujarDigito(p_dec, 1, de%10);
+
+                DibujarDigito(p_min, 0, mi / 10);
+                DibujarDigito(p_min, 1, mi % 10);
+                DibujarDigito(p_sec, 0, se / 10);
+                DibujarDigito(p_sec, 1, se % 10);
+                DibujarDigito(p_dec, 0, de / 10);
+                DibujarDigito(p_dec, 1, de % 10);
+
             } else if (m == MODE_ALARM_RING) {
-                ILI9341DrawString(100, 200, "ALARM!", &font_16x26, ILI9341_RED, DIGITO_FONDO);
+                /* Display alarm ringing message */
+                ILI9341DrawString(100, 200,
+                                  "ALARM!",
+                                  &font_16x26,
+                                  ILI9341_RED,
+                                  DIGITO_FONDO);
             }
 
-            /* bottom legends */
-            ILI9341DrawString( 10, 300, "PB3: MODE", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
-            ILI9341DrawString(140, 300, "PB1:OK/SEL", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
-            ILI9341DrawString(280, 300, "PB2:INC", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
+            /* 4) Bottom fixed button legends — swapped PB1/PB2 */
+            ILI9341DrawString( 10, 300, "PB3: MODE",
+                              &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
+            ILI9341DrawString(140, 300, "PB2:INC",
+                              &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
+            ILI9341DrawString(280, 300, "PB1:OK/SEL",
+                              &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
         }
     }
 }
