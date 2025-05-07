@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-
 extern uint8_t al_h, al_m;
 
 bool alarm_enabled(void);

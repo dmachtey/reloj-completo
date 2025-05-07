@@ -2,27 +2,29 @@
 #ifndef BUTTON_EVENTS_H
 #define BUTTON_EVENTS_H
 
+#include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
-#include <stdint.h>
+#include "driver/gpio.h"
 
-/* pines de botones definidos en your_pin_definitions.h */
-#define BUTTON_PIN_START_STOP  GPIO_NUM_35  /* PB1 */
-#define BUTTON_PIN_RESET       GPIO_NUM_22  /* PB2 */
-#define BUTTON_PIN_MODE        GPIO_NUM_21  /* PB3 */
+#define BUTTON_PIN_START_STOP   GPIO_NUM_35  /* PB1 */
+#define BUTTON_PIN_RESET        GPIO_NUM_22  /* PB2 */
+#define BUTTON_PIN_FUNC         GPIO_NUM_21  /* PB3 */
 
-/* Event Bits para pulsaciones */
-#define EV_BIT_START_STOP      (1 << 0)
-#define EV_BIT_RESET           (1 << 1)
-#define EV_BIT_FUNC_CHANGE     (1 << 2)
+#define EV_BIT_START_STOP       (1U << 0)
+#define EV_BIT_RESET            (1U << 1)
+#define EV_BIT_FUNC_CHANGE      (1U << 2)
 
-/* Bit persistente de estado de cronómetro corriendo */
-#define EV_STATE_RUNNING       (1 << 3)
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 extern EventGroupHandle_t xButtonEventGroup;
 
-/* Inicialización GPIO + EventGroup */
-void ButtonEvents_Init(void);
-/* Tarea que detecta flancos e inserta EV_BITs y EV_STATE_RUNNING */
-void ButtonEvents_Task(void *pvParameters);
+void button_events_init(void);
+void button_events_task(void *pvParameters);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* BUTTON_EVENTS_H */
