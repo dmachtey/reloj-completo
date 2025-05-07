@@ -1,0 +1,8 @@
+build/
+sdkconfig.old
+README.md
+repositorio.txt
+/.cache/
+/.clang-format
+/.devcontainer/
+/.vscode/

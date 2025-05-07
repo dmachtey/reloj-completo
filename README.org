@@ -1,2 +1,2 @@
-* Práctico cronometro
+* Práctico cronometro + Reloj despertador
  - Curso programación de dispositivos embebidos.
