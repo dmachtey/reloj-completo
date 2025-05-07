@@ -1,0 +1,2 @@
+* Práctico cronometro
+ - Curso programación de dispositivos embebidos.
