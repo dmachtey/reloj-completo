@@ -13,8 +13,9 @@
 
 // Semaphore and counter for tenths of seconds
 SemaphoreHandle_t sem_decimas = NULL;
+SemaphoreHandle_t sem_laps = NULL;
 uint32_t decimas = 0;
-
+uint32_t laps[4];
 
 // Clock time variables
 uint8_t clk_h = 0, clk_m = 0, clk_s = 0;
@@ -22,6 +23,7 @@ uint8_t clk_h = 0, clk_m = 0, clk_s = 0;
 void timekeeper_init(void)
 {
   sem_decimas = xSemaphoreCreateMutex();
+  sem_laps = xSemaphoreCreateMutex();
 }
 
 void timekeeper_set_clock(uint8_t hours, uint8_t minutes, uint8_t seconds)
@@ -40,6 +42,7 @@ void timekeeper_set_clock(uint8_t hours, uint8_t minutes, uint8_t seconds)
 void timekeeper_task(void *pvParameters)
 {
   static uint32_t thents = 0;
+  static bool laps_updated = false;
   TickType_t last_wake = xTaskGetTickCount();
   uint32_t acc_ms = 0;
 
@@ -50,79 +53,93 @@ void timekeeper_task(void *pvParameters)
       bool running = (bits & EV_STATE_RUNNING) != 0;
       bool lap = (bits & EV_STATE_LAP) != 0;
 
+      // MODE_CHRONO
+      if (current_mode == MODE_CHRONO) {
+        bits = xEventGroupGetBits(xButtonEventGroup);
+        running = bits & EV_STATE_RUNNING;
+        lap = bits & EV_STATE_LAP;
 
-      // MODE_CHORONO
-      if (current_mode == MODE_CHRONO)
-        {
-          // Refresh local state
-          bits = xEventGroupGetBits(xButtonEventGroup);
-          running = (bits & EV_STATE_RUNNING) != 0;
-          lap = (bits & EV_STATE_LAP) != 0;
+        // PB1: Cycle STOPPED->RUNNING->LAP->RUNNING
+        if (bits & EV_BIT_START_STOP) {
+          if (!running && !lap) {
+            xEventGroupSetBits(xButtonEventGroup, EV_STATE_RUNNING);
+            laps_updated = false;
+          } else if (running) {
+            xEventGroupClearBits(xButtonEventGroup, EV_STATE_RUNNING);
+            xEventGroupSetBits(xButtonEventGroup, EV_STATE_LAP);
+            laps_updated = false;
+          } else if (lap) {
+            xEventGroupClearBits(xButtonEventGroup, EV_STATE_LAP);
+            xEventGroupSetBits(xButtonEventGroup, EV_STATE_RUNNING);
 
-          // Handle PB1: cycle STOPPED->RUNNING->LAP->RUNNING
-          if (bits & EV_BIT_START_STOP)
-            {
-              if (!running && !lap)
-                {
-                  // STOPPED -> RUNNING
-                  xEventGroupSetBits(xButtonEventGroup, EV_STATE_RUNNING);
-                }
-              else if (running)
-                {
-                  // RUNNING -> LAP
-                  xEventGroupClearBits(xButtonEventGroup, EV_STATE_RUNNING);
-                  xEventGroupSetBits(xButtonEventGroup, EV_STATE_LAP);
-                  }
-              else if (lap)
-                {
-                  // LAP -> RUNNING
-                  xEventGroupClearBits(xButtonEventGroup, EV_STATE_LAP);
-                  xEventGroupSetBits(xButtonEventGroup, EV_STATE_RUNNING);
-                }
-              xEventGroupClearBits(xButtonEventGroup, EV_BIT_START_STOP);
-              display_request_update();
-
+            if (!laps_updated) {
+              if (xSemaphoreTake(sem_laps, portMAX_DELAY) == pdTRUE) {
+                laps[3] = laps[2];
+                laps[2] = laps[1];
+                laps[1] = laps[0];
+                laps[0] = decimas;
+                xSemaphoreGive(sem_laps);
+                laps_updated = true;
+              }
             }
 
-          if (xSemaphoreTake(sem_decimas, portMAX_DELAY) == pdTRUE)
-            {
-              decimas = thents;
-              xSemaphoreGive(sem_decimas);
-            }
-
-          // Update display continuously when running
-          if (running)
-            {
-              xEventGroupClearBits(xButtonEventGroup, EV_BIT_RESET);
-              display_request_update();
-            }
-          if (running || lap)
-            {
-              // increase the counter
-              thents++;
-            }
-
-          // Reset on PB2 only when in LAP
-          if ((bits & EV_BIT_RESET) && lap)
-            {
-              if (xSemaphoreTake(sem_decimas, portMAX_DELAY) == pdTRUE)
-                {
-                  thents = 0;
-                  decimas = 0;
-                  xSemaphoreGive(sem_decimas);
-                }
-              // Go to STOPPED state
-              xEventGroupClearBits(xButtonEventGroup, EV_STATE_LAP);
-              xEventGroupClearBits(xButtonEventGroup, EV_BIT_RESET);
-              display_request_update();
-            }
+          }
+          xEventGroupClearBits(xButtonEventGroup, EV_BIT_START_STOP);
+          display_request_update();
         }
-      // End MODE_CHRONO
+
+        // Update decimas safely
+        if (!lap)
+          if (xSemaphoreTake(sem_decimas, portMAX_DELAY) == pdTRUE) {
+            decimas = thents;
+            xSemaphoreGive(sem_decimas);
+          }
+
+        if (lap & !laps_updated) {
+          if (xSemaphoreTake(sem_laps, portMAX_DELAY) == pdTRUE) {
+            laps[3] = laps[2];
+            laps[2] = laps[1];
+            laps[1] = laps[0];
+            laps[0] = decimas;
+            xSemaphoreGive(sem_laps);
+            laps_updated = true;
+          }
+        }
+
+        // Reset with PB2 only in LAP state
+        if ((bits & EV_BIT_RESET) && lap) {
+          if (xSemaphoreTake(sem_decimas, portMAX_DELAY) == pdTRUE) {
+            thents = decimas = 0;
+            xSemaphoreGive(sem_decimas);
+          }
+
+          if (xSemaphoreTake(sem_laps, portMAX_DELAY) == pdTRUE) {
+            laps[3] = 0;
+            laps[2] = 0;
+            laps[1] = 0;
+            laps[0] = 0;
+            xSemaphoreGive(sem_laps);
+          }
+
+          xEventGroupClearBits(xButtonEventGroup, EV_STATE_LAP | EV_BIT_RESET);
+          display_request_update();
+        }
+        if (running) {
+          xEventGroupClearBits(xButtonEventGroup, EV_BIT_RESET);
+          display_request_update();
+        }
+      }
+      // Increment and refresh display
+      if (running || lap) {
+        thents++;
+      }
+
 
 
       // Delay 10 ms and handle clock every 1 sec
       vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(10));
       acc_ms += 10;
+
       if (acc_ms >= 1000)
         {
           acc_ms -= 1000;

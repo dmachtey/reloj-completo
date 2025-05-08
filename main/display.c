@@ -161,6 +161,30 @@ void display_task(void *pvParameters)
                 DibujarDigito(panel_tenths, 0, tenth / 10);
                 DibujarDigito(panel_tenths, 1, tenth % 10);
 
+
+                uint32_t local_laps[3] = {0};
+                if (xSemaphoreTake(sem_laps, portMAX_DELAY) == pdTRUE) {
+                  local_laps[0] = laps[0];
+                  local_laps[1] = laps[1];
+                  local_laps[2] = laps[2];
+                  xSemaphoreGive(sem_laps);
+                }
+
+
+                // display laps into LCD
+                char buf[16];
+                for (int i = 0; i < 3; i++) {
+                  uint32_t pmin = (local_laps[i] / 6000) % 100;
+                  uint32_t psec = (local_laps[i] / 100) % 60;
+                  uint32_t pde  = local_laps[i] % 100;
+                  snprintf(buf, sizeof(buf), "%02lu:%02lu.%02lu", pmin, psec, pde);
+                  ILI9341DrawString(30, 180 + 36 * i, buf, &font_16x26,
+                                    ILI9341_WHITE, DIGITO_APAGADO);
+                }
+
+
+
+
             } else if (m == MODE_ALARM_RING) {
                 /* Alarm ringing message */
                 ILI9341DrawString(

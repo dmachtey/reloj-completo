@@ -9,10 +9,10 @@
 #include "button_events.h"
 
 extern SemaphoreHandle_t sem_decimas;    /* ← protegen decimas  */
-extern SemaphoreHandle_t sem_parciales;  /* ← protegen parciales */
+extern SemaphoreHandle_t sem_laps;  /* ← protegen parciales */
 
 extern uint32_t decimas;                 /* ← decenas de segundo      */
-extern uint32_t parciales[4];            /* ← históricos de laps      */
+extern uint32_t laps[4];            /* ← históricos de laps      */
 
 extern uint8_t clk_h;    /* hora actual          */
 extern uint8_t clk_m;    /* minuto actual        */
