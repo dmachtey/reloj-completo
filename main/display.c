@@ -70,22 +70,26 @@ void display_request_update(void)
     }
 }
 
+static mode_t old_m = MODE_CLOCK;
 /*---------------------------------------------------------------------------*/
 /* The display task: waits for mode updates and redraws the screen           */
 /*---------------------------------------------------------------------------*/
 void display_task(void *pvParameters)
 {
     mode_t m;
+
     char   buf[32];
 
     for (;;) {
         if (displayModeQueue &&
             xQueueReceive(displayModeQueue, &m, portMAX_DELAY) == pdTRUE)
         {
-            /* 1) clear the entire screen */
-            ILI9341Fill(DIGITO_FONDO);
+          /* 1) clear the entire screen if mode has changed */
+          if (m != old_m)
+                   ILI9341Fill(DIGITO_FONDO);
+          old_m = m;
 
-            /* 2) draw the mode indicator in the top-right corner */
+          /* 2) draw the mode indicator in the top-right corner */
             const char *mode_str = "";
             switch (m) {
             case MODE_CLOCK:      mode_str = "CLOCK";    break;
@@ -95,6 +99,7 @@ void display_task(void *pvParameters)
             case MODE_CHRONO:     mode_str = "CHRONO";   break;
             case MODE_ALARM_RING: mode_str = "!RING!";   break;
             }
+
             ILI9341DrawString(
                 350, 10,
                 (char*)mode_str, &font_7x10,

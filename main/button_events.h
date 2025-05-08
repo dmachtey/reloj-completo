@@ -13,6 +13,8 @@
 #define EV_BIT_START_STOP       (1U << 0)
 #define EV_BIT_RESET            (1U << 1)
 #define EV_BIT_FUNC_CHANGE      (1U << 2)
+#define EV_STATE_RUNNING        (1U << 3)
+
 
 #ifdef __cplusplus
 extern "C" {
