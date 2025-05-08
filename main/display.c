@@ -8,20 +8,20 @@
 #include "timekeeper.h"
 #include "alarm.h"
 #include "button_events.h"
-#include "mode_manager.h"
+#include "mode_manager.h"      /* <— ensures mode_t, current_mode, MODE_* */
+
+#include "freertos/semphr.h"
+#include "freertos/event_groups.h"
 
 #include <stdio.h>
 #include <stdint.h>
-#include "freertos/semphr.h"
-#include "freertos/queue.h"
-#include "freertos/event_groups.h"
 
-/* Static panels — avoid stack usage in display_task */
+/* Static panels — allocated once, not on the task stack */
 static panel_t p_min;
 static panel_t p_sec;
 static panel_t p_dec;
 
-/* Queue for mode change notifications */
+/* Queue handle for receiving mode_t updates */
 static QueueHandle_t xDisplayQueue = NULL;
 
 void display_init(void)
@@ -29,7 +29,7 @@ void display_init(void)
     ILI9341Init();
     ILI9341Rotate(ILI9341_Landscape_1);
 
-    /* Initialize digit panels once */
+    /* Create the big-digit panels only once */
     p_min = CrearPanel( 30, 60, 2,
                         DIGITO_ALTO, DIGITO_ANCHO,
                         DIGITO_ENCENDIDO, DIGITO_APAGADO, DIGITO_FONDO);
@@ -40,15 +40,15 @@ void display_init(void)
                         DIGITO_ALTO, DIGITO_ANCHO,
                         DIGITO_ENCENDIDO, DIGITO_APAGADO, DIGITO_FONDO);
 
-    /* Create queue for mode changes */
+    /* Create a length-1 queue to pass mode changes */
     xDisplayQueue = xQueueCreate(1, sizeof(mode_t));
-    /* Trigger initial draw */
+    /* Kick-off the first draw */
     display_request_update();
 }
 
 void display_request_update(void)
 {
-    if (xDisplayQueue) {
+    if (xDisplayQueue != NULL) {
         mode_t m = current_mode;
         xQueueOverwrite(xDisplayQueue, &m);
     }
@@ -60,13 +60,14 @@ void display_task(void *pvParameters)
     char   buf[32];
 
     for (;;) {
-        if (xDisplayQueue &&
+        /* Block until a new mode arrives */
+        if (xDisplayQueue != NULL &&
             xQueueReceive(xDisplayQueue, &m, portMAX_DELAY) == pdTRUE)
         {
-            /* 1) Clear screen */
+            /* 1) Clear the screen */
             ILI9341Fill(DIGITO_FONDO);
 
-            /* 2) Draw mode indicator top-right */
+            /* 2) Draw the mode label at top-right */
             const char *mode_str = "";
             switch (m) {
             case MODE_CLOCK:      mode_str = "CLOCK";    break;
@@ -80,9 +81,9 @@ void display_task(void *pvParameters)
                               (char*)mode_str, &font_7x10,
                               ILI9341_WHITE, DIGITO_FONDO);
 
-            /* 3) Main display area */
+            /* 3) Main display content based on mode */
             if (m == MODE_CLOCK || m == MODE_CLOCK_SET) {
-                /* Display real-time clock HH:MM:SS */
+                /* Real-time clock HH:MM:SS */
                 snprintf(buf, sizeof(buf), "%02u:%02u:%02u",
                          clk_h, clk_m, clk_s);
                 ILI9341DrawString(80, 200,
@@ -90,7 +91,7 @@ void display_task(void *pvParameters)
                                   ILI9341_WHITE, DIGITO_FONDO);
 
             } else if (m == MODE_ALARM || m == MODE_ALARM_SET) {
-                /* Display alarm time HH:MM */
+                /* Alarm time HH:MM */
                 snprintf(buf, sizeof(buf), "%02u:%02u",
                          al_h, al_m);
                 ILI9341DrawString(100, 200,
@@ -98,10 +99,10 @@ void display_task(void *pvParameters)
                                   ILI9341_WHITE, DIGITO_FONDO);
 
             } else if (m == MODE_CHRONO) {
-                /* Display stopwatch with large digits */
+                /* Stopwatch: draw minutes, seconds, tenths as big digits */
                 uint32_t tot;
                 xSemaphoreTake(sem_decimas, portMAX_DELAY);
-                tot = decimas;
+                  tot = decimas;
                 xSemaphoreGive(sem_decimas);
 
                 uint32_t mi = tot / 6000;
@@ -116,15 +117,13 @@ void display_task(void *pvParameters)
                 DibujarDigito(p_dec, 1, de % 10);
 
             } else if (m == MODE_ALARM_RING) {
-                /* Display alarm ringing message */
+                /* Alarm ringing message */
                 ILI9341DrawString(100, 200,
                                   "ALARM!",
-                                  &font_16x26,
-                                  ILI9341_RED,
-                                  DIGITO_FONDO);
+                                  &font_16x26, ILI9341_RED, DIGITO_FONDO);
             }
 
-            /* 4) Bottom fixed button legends — swapped PB1/PB2 */
+            /* 4) Bottom fixed legends */
             ILI9341DrawString( 10, 300, "PB3: MODE",
                               &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
             ILI9341DrawString(140, 300, "PB2:INC",
