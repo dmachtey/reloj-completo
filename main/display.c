@@ -1,5 +1,4 @@
 /* File: display.c */
-
 #include "display.h"
 #include "display_config.h"
 #include "ili9341.h"

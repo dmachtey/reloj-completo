@@ -45,20 +45,32 @@ void timekeeper_task(void *pvParameters)
             else
                 xEventGroupSetBits(xButtonEventGroup, EV_STATE_RUNNING);
             xEventGroupClearBits(xButtonEventGroup, EV_BIT_START_STOP);
-            display_request_update(); // refresh display state
+            display_request_update();
         }
 
-        /* Chrono: increment decimas every 10 ms only if running, update display every 100 ms */
-        if (current_mode == MODE_CHRONO && (bits & EV_STATE_RUNNING))
+        /* Handle reset on PB2: only in chrono mode when paused */
+        if (current_mode == MODE_CHRONO &&
+            (bits & EV_BIT_RESET) &&
+            !(bits & EV_STATE_RUNNING))
+        {
+            if (xSemaphoreTake(sem_decimas, portMAX_DELAY) == pdTRUE)
+            {
+                decimas = 0;
+                xSemaphoreGive(sem_decimas);
+            }
+            xEventGroupClearBits(xButtonEventGroup, EV_BIT_RESET);
+            display_request_update();
+        }
+
+        /* Chrono: increment decimas every 10 ms only if running */
+        if (current_mode == MODE_CHRONO &&
+            (bits & EV_STATE_RUNNING))
         {
             if (xSemaphoreTake(sem_decimas, portMAX_DELAY) == pdTRUE)
             {
                 decimas++;
                 xSemaphoreGive(sem_decimas);
-                if ((decimas % 10) == 0) // every 100 ms
-                {
-                    display_request_update();
-                }
+                display_request_update();
             }
         }
 
