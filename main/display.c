@@ -76,8 +76,11 @@ static mode_t old_m = MODE_CLOCK;
 void display_task(void *pvParameters)
 {
     mode_t m;
-
     char   buf[32];
+    static uint32_t old_mins = 0xFFFFFFFF;
+    static uint32_t old_secs = 0xFFFFFFFF;
+    static uint32_t old_tenth = 0xFFFFFFFF;
+    static bool botton_shown = false;
 
     for (;;) {
         if (displayModeQueue &&
@@ -136,52 +139,61 @@ void display_task(void *pvParameters)
                 uint32_t tenth = tot % 100;            /* residual tenths */
 
                 /* draw minutes */
-                DibujarDigito(panel_minutes, 0, mins / 10);
-                DibujarDigito(panel_minutes, 1, mins % 10);
+                if (old_mins != mins){
+                  DibujarDigito(panel_minutes, 0, mins / 10);
+                  DibujarDigito(panel_minutes, 1, mins % 10);
 
-                /* draw colon separator as two filled circles */
-                {
-                    uint16_t circleColor = DIGITO_ENCENDIDO;
-                    ILI9341DrawFilledCircle(150, 110, 5, circleColor);
-                    ILI9341DrawFilledCircle(150, 150, 5, circleColor);
+                  /* draw colon separator as two filled circles */
+                  old_mins = mins;
                 }
 
-                /* draw seconds */
-                DibujarDigito(panel_seconds, 0, secs / 10);
-                DibujarDigito(panel_seconds, 1, secs % 10);
+                if (old_secs != secs){
+                  /* draw seconds */
+                  DibujarDigito(panel_seconds, 0, secs / 10);
+                  DibujarDigito(panel_seconds, 1, secs % 10);
 
-                /* draw colon separator between seconds and tenths */
-                {
-                    uint16_t circleColor = DIGITO_ENCENDIDO;
-                    ILI9341DrawFilledCircle(290, 110, 5, circleColor);
-                    ILI9341DrawFilledCircle(290, 150, 5, circleColor);
+                  /* draw colon separator between seconds and tenths */
+                  old_secs = secs;
                 }
 
+                if (old_tenth != tenth){
                 /* draw tenths */
                 DibujarDigito(panel_tenths, 0, tenth / 10);
                 DibujarDigito(panel_tenths, 1, tenth % 10);
+                old_tenth = tenth;
 
 
-                uint32_t local_laps[3] = {0};
-                if (xSemaphoreTake(sem_laps, portMAX_DELAY) == pdTRUE) {
-                  local_laps[0] = laps[0];
-                  local_laps[1] = laps[1];
-                  local_laps[2] = laps[2];
-                  xSemaphoreGive(sem_laps);
+                uint16_t circleColor = ((tenth & 50)) ?  DIGITO_ENCENDIDO : DIGITO_APAGADO;
+                ILI9341DrawFilledCircle(160, 100, 5, circleColor);
+                ILI9341DrawFilledCircle(160, 140, 5, circleColor);
+
+                ILI9341DrawFilledCircle(300, 100, 5, circleColor);
+                ILI9341DrawFilledCircle(300, 140, 5, circleColor);
+
+
+
                 }
 
 
-                // display laps into LCD
-                char buf[16];
-                for (int i = 0; i < 3; i++) {
-                  uint32_t pmin = (local_laps[i] / 6000) % 100;
-                  uint32_t psec = (local_laps[i] / 100) % 60;
-                  uint32_t pde  = local_laps[i] % 100;
-                  snprintf(buf, sizeof(buf), "%02lu:%02lu.%02lu", pmin, psec, pde);
-                  ILI9341DrawString(30, 180 + 36 * i, buf, &font_16x26,
-                                    ILI9341_WHITE, DIGITO_APAGADO);
-                }
 
+                if (!(tenth%80)){
+                  // display laps into LCD
+                  uint32_t local_laps[4] = {0};
+                  if (xSemaphoreTake(sem_laps, portMAX_DELAY) == pdTRUE) {
+                    for (int i = 0; i < 4; i++)
+                      local_laps[i] = laps[i];
+                    xSemaphoreGive(sem_laps);
+                  }
+                  char buf[16];
+                  for (int i = 0; i < 4; i++) {
+                    uint32_t pmin = (local_laps[i] / 6000) % 100;
+                    uint32_t psec = (local_laps[i] / 100) % 60;
+                    uint32_t pde  = local_laps[i] % 100;
+                    snprintf(buf, sizeof(buf), "%02lu:%02lu.%02lu", pmin, psec, pde);
+                    ILI9341DrawString(30, 170 + 24 * i, buf, &font_11x18,
+                                      ILI9341_WHITE, DIGITO_APAGADO);
+                  }
+                }
 
 
 
@@ -193,13 +205,16 @@ void display_task(void *pvParameters)
                     &font_16x26, ILI9341_RED, DIGITO_FONDO);
             }
 
-            /* 4) always show bottom button legends (left→right: MODE, RESET, START) */
-            ILI9341DrawString( 10, 300, "PB3: MODE",
-                              &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
-            ILI9341DrawString(140, 300, "PB2: RESET",
-                              &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
-            ILI9341DrawString(280, 300, "PB1: START",
-                              &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
+
+            if (!botton_shown){
+              /* 4) always show bottom button legends (left→right: MODE, RESET, START) */
+              ILI9341DrawString( 10, 300, "PB3: MODE",
+                                 &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
+              ILI9341DrawString(140, 300, "PB2: RESET",
+                                &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
+              ILI9341DrawString(280, 300, "PB1: START",
+                                &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
+            }
         }
     }
 }
