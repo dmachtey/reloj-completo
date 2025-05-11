@@ -67,6 +67,6 @@ void alarm_task(void *pvParameters)
         //     AlarmData_t a = { .mode = current_mode, .al_h = al_h, .al_m = al_m };
         //     xQueueOverwrite(xAlarmQueue, &a);
         // }
-        vTaskDelay(pdMS_TO_TICKS(1));
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }

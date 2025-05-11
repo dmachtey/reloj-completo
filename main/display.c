@@ -5,6 +5,7 @@
 #include "digitos.h"
 #include "fonts.h"
 #include "mode_manager.h"
+#include <stdbool.h>
 #include <stdio.h>
 #include "esp_log.h"
 
@@ -117,7 +118,7 @@ void display_task(void *pvParameters)
 
   for (;;)
     {
-      //QueueHandle_t h = xQueueSelectFromSet(xDisplayQueueSet, portMAX_DELAY);
+
       if (old_mode != current_mode){
         draw_static_legend(current_mode);
         old_mode = current_mode;
@@ -131,7 +132,7 @@ void display_task(void *pvParameters)
       ChronoData_t d;
       if (xQueueReceive(xChronoQueue, &d, 2) == pdTRUE)
         {
-          ESP_LOGI(TAG, "Recibimos por la cola de chrono");
+          //ESP_LOGI(TAG, "Recibimos por la cola de chrono");
           /* Desechamos si no es realmente modo CHRONO */
           if (d.mode != MODE_CHRONO) {
             continue;
@@ -162,52 +163,6 @@ void display_task(void *pvParameters)
               ILI9341DrawString(30, 170 + 24 * i, buf, &font_11x18, ILI9341_WHITE, DIGITO_APAGADO);
             }
         }
-      // }
-      // /* --- MODO RELOJ --- */
-      // else if (h == xClockQueue)
-      // {
-      //     ClockData_t c;
-      //     if (xQueueReceive(xClockQueue, &c, 0) == pdTRUE)
-      //     {
-      //         /* Desechamos si no es CLOCK ni CLOCK_SET */
-      //         if (c.mode != MODE_CLOCK && c.mode != MODE_CLOCK_SET) {
-      //             continue;
-      //         }
-      //         if (c.mode != old_mode) {
-      //             old_mode = c.mode;
-      //             draw_static_legend(c.mode);
-      //         }
-      //         char buf[32];
-      //         snprintf(buf, sizeof(buf), "%02u:%02u:%02u", c.clk_h, c.clk_m, c.clk_s);
-      //         ILI9341DrawString(80, 200, buf, &font_11x18, ILI9341_WHITE, DIGITO_APAGADO);
-      //     }
-      // }
-      // /* --- MODO ALARMA --- */
-      // else if (h == xAlarmQueue)
-      // {
-      //     AlarmData_t a;
-      //     if (xQueueReceive(xAlarmQueue, &a, 0) == pdTRUE)
-      //     {
-      //         /* Desechamos si no es ALARM, ALARM_SET ni ALARM_RING */
-      //         if (a.mode != MODE_ALARM && a.mode != MODE_ALARM_SET && a.mode != MODE_ALARM_RING) {
-      //             continue;
-      //         }
-      //         if (a.mode != old_mode) {
-      //             old_mode = a.mode;
-      //             draw_static_legend(a.mode);
-      //         }
-      //         if (a.mode == MODE_ALARM_RING)
-      //         {
-      //             ILI9341DrawString(80, 200, (char*)"!!! ALARM !!!", &font_11x18, ILI9341_WHITE, DIGITO_APAGADO);
-      //         }
-      //         else
-      //         {
-      //             char buf2[16];
-      //             snprintf(buf2, sizeof(buf2), "%02u:%02u", a.al_h, a.al_m);
-      //             ILI9341DrawString(120,200, buf2, &font_11x18, ILI9341_WHITE, DIGITO_APAGADO);
-      //         }
-      //     }
-      // }
-      vTaskDelay(pdMS_TO_TICKS(2));
+      vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
