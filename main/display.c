@@ -116,17 +116,26 @@ static const char* mode_to_string(app_mode_t mode)
 void display_task(void *pvParameters)
 {
   app_mode_t old_mode = (app_mode_t)-1;
+  bool mode_changed = true;
+  bool first_cycle = true;
   uint32_t old_mins = 0xFFFFFFFF;
   uint32_t old_secs = 0xFFFFFFFF;
   uint32_t old_tenth = 0xFFFFFFFF;
   uint16_t circleColor = DIGITO_ENCENDIDO;
   uint8_t circleChange = 0;
   uint32_t old_laps = 0xFFFFFFFF;
+  ChronoData_t d = {
+    .mode   = MODE_CHRONO,
+    .thents = 0,
+    .laps   = { 0, 0, 0, 0 }
+  };
+
 
   for (;;)
     {
 
-      if (old_mode != current_mode){
+
+      if ((mode_changed = ((old_mode != current_mode) | first_cycle))) {
         draw_static_legend(current_mode);
         old_mode = current_mode;
         // Redraw the chrono if mode has changed.
@@ -140,8 +149,8 @@ void display_task(void *pvParameters)
       // {
 
 
-      ChronoData_t d;
-      if ((current_mode == MODE_CHRONO) & (xQueueReceive(xChronoQueue, &d, 2) == pdTRUE))
+
+        if ((current_mode == MODE_CHRONO) & ((xQueueReceive(xChronoQueue, &d, 2) == pdTRUE)| mode_changed))
         {
           //ESP_LOGI(TAG, "Recibimos por la cola de chrono");
           /* Desechamos si no es realmente modo CHRONO */
@@ -178,10 +187,10 @@ void display_task(void *pvParameters)
             old_tenth = tenth;
 
             circleChange++;
-            if (circleChange > 10)
+            if ((circleChange > 10)| (mode_changed) )
               {
                 circleChange = 0;
-                if (circleColor !=  DIGITO_ENCENDIDO)
+                if ((circleColor !=  DIGITO_ENCENDIDO) | mode_changed)
                   circleColor = DIGITO_ENCENDIDO;
                 else
                   circleColor = DIGITO_APAGADO;
@@ -193,7 +202,7 @@ void display_task(void *pvParameters)
               }
           }
 
-          if (old_laps != d.laps[0]){
+          if ((old_laps != d.laps[0])| mode_changed){
             char buf[16];
             for (int i = 0; i < 4; i++)
               {
@@ -207,6 +216,8 @@ void display_task(void *pvParameters)
           }
 
         }
+        mode_changed = false;
+        first_cycle = false;
       vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
