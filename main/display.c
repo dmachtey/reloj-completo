@@ -6,6 +6,7 @@
 #include "fonts.h"
 #include "mode_manager.h"
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include "esp_log.h"
 
@@ -115,6 +116,12 @@ static const char* mode_to_string(app_mode_t mode)
 void display_task(void *pvParameters)
 {
   app_mode_t old_mode = (app_mode_t)-1;
+  uint32_t old_mins = 0xFFFFFFFF;
+  uint32_t old_secs = 0xFFFFFFFF;
+  uint32_t old_tenth = 0xFFFFFFFF;
+  uint16_t circleColor = DIGITO_ENCENDIDO;
+  uint8_t circleChange = 0;
+  uint32_t old_laps = 0xFFFFFFFF;
 
   for (;;)
     {
@@ -122,46 +129,83 @@ void display_task(void *pvParameters)
       if (old_mode != current_mode){
         draw_static_legend(current_mode);
         old_mode = current_mode;
-        ESP_LOGI(TAG, "display task %s", mode_to_string(current_mode));
+        // Redraw the chrono if mode has changed.
+        old_mins = 0xFFFFFFFF;
+        old_secs = 0xFFFFFFFF;
+        old_tenth = 0xFFFFFFFF;
       }
 
       // /* --- MODO CRONÓMETRO --- */
       // if (h == xChronoQueue)
       // {
 
+
       ChronoData_t d;
-      if (xQueueReceive(xChronoQueue, &d, 2) == pdTRUE)
+      if ((current_mode == MODE_CHRONO) & (xQueueReceive(xChronoQueue, &d, 2) == pdTRUE))
         {
           //ESP_LOGI(TAG, "Recibimos por la cola de chrono");
           /* Desechamos si no es realmente modo CHRONO */
           if (d.mode != MODE_CHRONO) {
             continue;
           }
-          // /* Si cambia el modo, redibujamos leyendas estáticas */
-          // if (d.mode != old_mode) {
-          //   old_mode = d.mode;
-          //   draw_static_legend(d.mode);
-          // }
-          /* Luego dibujamos el tiempo y vueltas */
+
           uint32_t mins  = (d.thents / 6000) % 100;
           uint32_t secs  = (d.thents / 100)  % 60;
           uint32_t tenth =  d.thents         % 100;
-          DibujarDigito(panel_minutes, 0, mins / 10);
-          DibujarDigito(panel_minutes, 1, mins % 10);
-          DibujarDigito(panel_seconds, 0, secs / 10);
-          DibujarDigito(panel_seconds, 1, secs % 10);
-          DibujarDigito(panel_tenths,  0, tenth / 10);
-          DibujarDigito(panel_tenths,  1, tenth % 10);
+          /* draw minutes */
+          if (old_mins != mins){
+            DibujarDigito(panel_minutes, 0, mins / 10);
+            DibujarDigito(panel_minutes, 1, mins % 10);
 
-          char buf[16];
-          for (int i = 0; i < 4; i++)
-            {
-              uint32_t pmin = (d.laps[i] / 6000) % 100;
-              uint32_t psec = (d.laps[i] / 100)  % 60;
-              uint32_t pde  =  d.laps[i]         % 100;
-              snprintf(buf, sizeof(buf), "%02lu:%02lu.%02lu", pmin, psec, pde);
-              ILI9341DrawString(30, 170 + 24 * i, buf, &font_11x18, ILI9341_WHITE, DIGITO_APAGADO);
-            }
+            /* draw colon separator as two filled circles */
+            old_mins = mins;
+          }
+
+
+          if (old_secs != secs){
+            /* draw seconds */
+            DibujarDigito(panel_seconds, 0, secs / 10);
+            DibujarDigito(panel_seconds, 1, secs % 10);
+
+            /* draw colon separator between seconds and tenths */
+            old_secs = secs;
+          }
+
+          if (old_tenth != tenth){
+            /* draw tenths */
+            DibujarDigito(panel_tenths, 0, tenth / 10);
+            DibujarDigito(panel_tenths, 1, tenth % 10);
+            old_tenth = tenth;
+
+            circleChange++;
+            if (circleChange > 10)
+              {
+                circleChange = 0;
+                if (circleColor !=  DIGITO_ENCENDIDO)
+                  circleColor = DIGITO_ENCENDIDO;
+                else
+                  circleColor = DIGITO_APAGADO;
+
+                ILI9341DrawFilledCircle(160, 100, 5, circleColor);
+                ILI9341DrawFilledCircle(160, 140, 5, circleColor);
+                ILI9341DrawFilledCircle(300, 100, 5, circleColor);
+                ILI9341DrawFilledCircle(300, 140, 5, circleColor);
+              }
+          }
+
+          if (old_laps != d.laps[0]){
+            char buf[16];
+            for (int i = 0; i < 4; i++)
+              {
+                uint32_t pmin = (d.laps[i] / 6000) % 100;
+                uint32_t psec = (d.laps[i] / 100)  % 60;
+                uint32_t pde  =  d.laps[i]         % 100;
+                snprintf(buf, sizeof(buf), "%02lu:%02lu.%02lu", pmin, psec, pde);
+                ILI9341DrawString(30, 170 + 24 * i, buf, &font_11x18, ILI9341_WHITE, DIGITO_APAGADO);
+                old_laps = d.laps[0];
+              }
+          }
+
         }
       vTaskDelay(pdMS_TO_TICKS(10));
     }
