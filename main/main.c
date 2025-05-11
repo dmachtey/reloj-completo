@@ -1,41 +1,92 @@
-/* File: main.c */
-
+/* File: main/main.c */
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "button_events.h"
-#include "mode_manager.h"
-#include "timekeeper.h"
-#include "alarm.h"
 #include "display.h"
+#include "timekeeper.h"
+#include "mode_manager.h"
+#include "alarm.h"
 
-/* Stack sizes in words */
-#define BTN_STACK_SIZE    2048
-#define MODE_STACK_SIZE   2048
-#define TIME_STACK_SIZE   2048
-#define ALARM_STACK_SIZE  2048
-#define DISP_STACK_SIZE   4096
+// Definiciones de pila y TCB para cada tarea
+#define STACK_SIZE_DISPLAY     4096
+#define STACK_SIZE_TIMEKEEPER  4096
+#define STACK_SIZE_MODE        2048
+#define STACK_SIZE_ALARM       2048
+#define STACK_SIZE_BTN_EVTS    2048
 
-static StaticTask_t xBtnTCB;   static StackType_t xBtnStack[BTN_STACK_SIZE];
-static StaticTask_t xModeTCB;  static StackType_t xModeStack[MODE_STACK_SIZE];
-static StaticTask_t xTimeTCB;  static StackType_t xTimeStack[TIME_STACK_SIZE];
-static StaticTask_t xAlarmTCB; static StackType_t xAlarmStack[ALARM_STACK_SIZE];
-static StaticTask_t xDispTCB;  static StackType_t xDispStack[DISP_STACK_SIZE];
+static StaticTask_t tcb_display;
+static StackType_t  stack_display[STACK_SIZE_DISPLAY];
+
+static StaticTask_t tcb_timekeeper;
+static StackType_t  stack_timekeeper[STACK_SIZE_TIMEKEEPER];
+
+static StaticTask_t tcb_mode;
+static StackType_t  stack_mode[STACK_SIZE_MODE];
+
+static StaticTask_t tcb_alarm;
+static StackType_t  stack_alarm[STACK_SIZE_ALARM];
+
+static StaticTask_t tcb_btn;
+static StackType_t  stack_btn[STACK_SIZE_BTN_EVTS];
 
 void app_main(void)
 {
-    /* Initialize display first so its queue is ready */
+    // 1) Inicializar el event-group de botones y arrancar su tarea
+    button_events_init();
+    xTaskCreateStatic(
+        button_events_task,
+        "btn_evts",
+        STACK_SIZE_BTN_EVTS,
+        NULL,
+        2,
+        stack_btn,
+        &tcb_btn
+    );
+
+    // 2) Inicializar módulos
+    mode_manager_init();
+    timekeeper_init();
+    alarm_init();
     display_init();
 
-    /* Now initialize other modules that may request updates */
-    button_events_init();
-    timekeeper_init();
-    mode_manager_init();
-    alarm_init();
+    // 3) Crear tareas estáticas en el orden deseado
+    xTaskCreateStatic(
+        display_task,
+        "display",
+        STACK_SIZE_DISPLAY,
+        NULL,
+        1,
+        stack_display,
+        &tcb_display
+    );
 
-    /* Create all tasks statically */
-    xTaskCreateStatic(button_events_task, "BtnEvt", BTN_STACK_SIZE, NULL, 2, xBtnStack,   &xBtnTCB);
-    xTaskCreateStatic(mode_manager_task,  "Mode",  MODE_STACK_SIZE, NULL, 3, xModeStack, &xModeTCB);
-    xTaskCreateStatic(timekeeper_task,     "Time",  TIME_STACK_SIZE, NULL, 4, xTimeStack, &xTimeTCB);
-    xTaskCreateStatic(alarm_task,          "Alarm", ALARM_STACK_SIZE,NULL, 3, xAlarmStack,&xAlarmTCB);
-    xTaskCreateStatic(display_task,        "Disp",  DISP_STACK_SIZE, NULL, 2, xDispStack, &xDispTCB);
+    xTaskCreateStatic(
+        timekeeper_task,
+        "timekeeper",
+        STACK_SIZE_TIMEKEEPER,
+        NULL,
+        2,
+        stack_timekeeper,
+        &tcb_timekeeper
+    );
+
+    xTaskCreateStatic(
+        mode_manager_task,
+        "mode_manager",
+        STACK_SIZE_MODE,
+        NULL,
+        1,
+        stack_mode,
+        &tcb_mode
+    );
+
+    xTaskCreateStatic(
+        alarm_task,
+        "alarm",
+        STACK_SIZE_ALARM,
+        NULL,
+        1,
+        stack_alarm,
+        &tcb_alarm
+    );
 }

@@ -1,11 +1,11 @@
-/* File: mode_manager.h */
+/* File: main/mode_manager.h */
 #ifndef MODE_MANAGER_H
 #define MODE_MANAGER_H
 
 #include <stdint.h>
 
 /**
- * @brief  Application modes.
+ * @brief  Application modes (avoids sys/types mode_t conflict).
  */
 typedef enum {
     MODE_CLOCK,
@@ -14,22 +14,12 @@ typedef enum {
     MODE_ALARM_SET,
     MODE_CHRONO,
     MODE_ALARM_RING
-} mode_t;
+} app_mode_t;
 
-/**
- * @brief  The current global mode. Defined in mode_manager.c.
- */
-extern mode_t current_mode;
+/** Global current mode (defined in mode_manager.c) */
+extern app_mode_t current_mode;
 
-/**
- * @brief  Initialize the mode manager (set default mode).
- */
 void mode_manager_init(void);
-
-/**
- * @brief  FreeRTOS task that listens for MODE (PB3) presses
- *         and cycles through the modes.
- */
 void mode_manager_task(void *pvParameters);
 
 #endif /* MODE_MANAGER_H */
