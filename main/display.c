@@ -105,7 +105,8 @@ void display_task(void *pvParameters)
     bool          blink        = false;
     bool          blink2        = false;
     bool          blink2_changed = false;
-
+    /* Track previous alarm sequence */
+    alarm_set_seq_t old_alarm_seq = alarm_set_sequence;
 
     for (;;) {
         /* al cambiar de modo, redibuja leyenda y resetea viejos */
@@ -216,11 +217,14 @@ void display_task(void *pvParameters)
                 && (alarm_set_sequence == ALARM_SEQ_HR))
               Panel_SetOnColor (panel_minutes, DIGITO_APAGADO);
 
-            if ((old_mins  != mins) || (blink2_changed && (alarm_set_sequence == ALARM_SEQ_HR)))
+            if ((old_mins  != mins)
+                || (blink2_changed && (alarm_set_sequence == ALARM_SEQ_HR))
+                || (alarm_set_sequence != old_alarm_seq))
               {
                 DibujarDigito(panel_minutes,0, mins/10);
                 DibujarDigito(panel_minutes,1, mins%10);
                 old_mins  = mins;
+                //old_alarm_seq = alarm_set_sequence;
               }
 
 
@@ -230,11 +234,14 @@ void display_task(void *pvParameters)
               Panel_SetOnColor (panel_seconds, DIGITO_APAGADO);
 
 
-            if ((old_secs != secs) || (blink2_changed && (alarm_set_sequence == ALARM_SEQ_MIN)))
+            if ((old_secs != secs)
+                || (blink2_changed && (alarm_set_sequence == ALARM_SEQ_MIN))
+                || (alarm_set_sequence != old_alarm_seq))
               {
                 DibujarDigito(panel_seconds,0, secs/10);
                 DibujarDigito(panel_seconds,1, secs%10);
                 old_secs  = secs;
+                old_alarm_seq = alarm_set_sequence;
               }
 
 
@@ -254,7 +261,7 @@ void display_task(void *pvParameters)
         mode_changed = first_cycle = false;
         blink_counter++;
         blink =(!(blink_counter % 12));
-        if(!(blink_counter % 24)) blink2 = !blink2;
+        if(!(blink_counter % 23)) blink2 = !blink2;
         blink2_changed = (!(blink_counter % 24));
         vTaskDelay(pdMS_TO_TICKS(10));
     }
