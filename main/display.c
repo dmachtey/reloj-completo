@@ -185,10 +185,10 @@ void display_task(void *pvParameters)
             if (old_secs != secs) { DibujarDigito(panel_seconds,0, secs/10);  DibujarDigito(panel_seconds,1, secs%10);  old_secs = secs; }
             ILI9341DrawFilledCircle(160,100,5,DIGITO_ENCENDIDO);
             ILI9341DrawFilledCircle(160,140,5,DIGITO_ENCENDIDO);
-            ILI9341DrawString(350, 30,
+            ILI9341DrawString(30, 200,
                               a.enable ? "ENABLE" : "DISABLE",
-                              &font_7x10,
-                              ILI9341_WHITE,
+                              &font_16x26,
+                              ILI9341_RED,
                               DIGITO_FONDO);
 
         }
