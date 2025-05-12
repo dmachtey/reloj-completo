@@ -207,7 +207,6 @@ void display_task(void *pvParameters)
             DibujarDigito(panel_minutes,0, mins/10);
             DibujarDigito(panel_minutes,1, mins%10);
             old_mins  = mins;
-            old_clk_seq = clk_set_sequence;
           }
 
 
