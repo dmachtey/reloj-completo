@@ -114,7 +114,6 @@ void display_task(void *pvParameters)
             old_mode  = current_mode;
             old_mins  = old_secs = old_tenth = 0xFFFFFFFF;
             old_laps  = 0xFFFFFFFF;
-            Panel_SetOnColor (panel_seconds, DIGITO_ENCENDIDO);
         }
 
         /* --- MODO CHRONO (sin cambios) --- */
@@ -202,10 +201,9 @@ void display_task(void *pvParameters)
         /* --- MODO ALARM / ALARM_SET --- */
         else if ((current_mode == MODE_ALARM || current_mode == MODE_ALARM_SET)
                  && ((xQueueReceive(xAlarmQueue, &a, pdMS_TO_TICKS(2)) == pdTRUE)
-                  ||  mode_changed
-                  || (current_mode == MODE_ALARM_SET
-                      && blink
-                      && (alarm_set_sequence != ALARM_SEQ_IDLE))))
+                     ||  mode_changed
+                     || ((current_mode == MODE_ALARM_SET) && blink)
+                     ))
         {
             if (a.mode != MODE_ALARM && a.mode != MODE_ALARM_SET) continue;
             uint32_t mins = a.al_h;  // horas de alarma
@@ -213,7 +211,12 @@ void display_task(void *pvParameters)
 
 
 
-            if (old_mins  != mins)
+            Panel_SetOnColor (panel_minutes, DIGITO_ENCENDIDO);
+            if ((blink2) && (current_mode == MODE_ALARM_SET)
+                && (alarm_set_sequence == ALARM_SEQ_HR))
+              Panel_SetOnColor (panel_minutes, DIGITO_APAGADO);
+
+            if ((old_mins  != mins) || (blink2_changed && (alarm_set_sequence == ALARM_SEQ_HR)))
               {
                 DibujarDigito(panel_minutes,0, mins/10);
                 DibujarDigito(panel_minutes,1, mins%10);
@@ -221,11 +224,10 @@ void display_task(void *pvParameters)
               }
 
 
+            Panel_SetOnColor (panel_seconds, DIGITO_ENCENDIDO);
             if ((blink2) && (current_mode == MODE_ALARM_SET)
                 && (alarm_set_sequence == ALARM_SEQ_MIN))
               Panel_SetOnColor (panel_seconds, DIGITO_APAGADO);
-            else
-              Panel_SetOnColor (panel_seconds, DIGITO_ENCENDIDO);
 
 
             if ((old_secs != secs) || (blink2_changed && (alarm_set_sequence == ALARM_SEQ_MIN)))
@@ -242,7 +244,8 @@ void display_task(void *pvParameters)
             ILI9341DrawString(30, 200,
                               a.enable ? "ENABLE" : "DISABLE",
                               &font_16x26,
-                              ILI9341_RED,
+                              (blink2 && (alarm_set_sequence == ALARM_SEQ_EN))
+                              ? DIGITO_APAGADO : DIGITO_ENCENDIDO,
                               DIGITO_FONDO);
 
         }
