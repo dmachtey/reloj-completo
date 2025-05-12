@@ -20,10 +20,19 @@ uint32_t          laps[4]     = {0};
 /* Variables de reloj */
 uint8_t clk_h = 0, clk_m = 0, clk_s = 0;
 
+/* Latest alarm settings queue */
+QueueHandle_t    xAlarmQtoClock = NULL;  // new queue from alarm module
+AlarmData_t a_set = {.al_h = 0, .al_m =0, .enable = false};
+
 void timekeeper_init(void)
 {
     sem_decimas = xSemaphoreCreateMutex();
     sem_laps    = xSemaphoreCreateMutex();
+
+
+    /* Create alarm-to-clock queue */
+    xAlarmQtoClock = xQueueCreate(1, sizeof(AlarmData_t));
+    configASSERT(xAlarmQtoClock);
 }
 
 void timekeeper_set_clock(uint8_t hours, uint8_t minutes, uint8_t seconds)
@@ -201,6 +210,21 @@ void timekeeper_task(void *pvParameters)
                 xQueueReceive(xClockQueue, &dummy, 0);
             }
         }
+
+
+        /* Read alarm settings if updated */
+        if (xQueueReceive(xAlarmQtoClock, &a_set, 0) == pdTRUE) {
+           ESP_LOGI(TAG, "Alarm updated: %02d:%02d enable=%d", a_set.al_h, a_set.al_m, a_set.enable);
+        }
+
+          /* Check alarm trigger: if current time >= alarm time */
+        if ((a_set.enable) &&
+            (clk_h == a_set.al_h && clk_m == a_set.al_m) )
+          {
+            current_mode = MODE_ALARM_RING;
+            ESP_LOGI(TAG, "Alarm triggered at %02d:%02d", clk_h, clk_m);
+          }
+
 
         /* Mantiene periodo de 10 ms */
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(10));

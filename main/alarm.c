@@ -6,26 +6,27 @@
 #include "display.h"
 #include "button_events.h"
 #include "mode_manager.h"
-//#include "display_config.h"
+#include "timekeeper.h"
 #include "esp_log.h"
 
 extern QueueHandle_t xAlarmQueue; // defined in display.c
+extern QueueHandle_t xAlarmQtoClock;  // new queue for timekeeper module
 
-static const char *TAG = "ALARM.C";
+
+static const char * TAG = "ALARM.C";
 
 /* Alarm state */
-bool     enabled     = false;
-uint8_t  al_h        = 0;
-uint8_t  al_m        = 0;
+bool enabled = false;
+uint8_t al_h = 0;
+uint8_t al_m = 0;
 
 /**
  * @brief Initialize alarm module.
  */
-void alarm_init(void)
-{
+void alarm_init(void) {
     enabled = false;
-    al_h    = 0;
-    al_m    = 0;
+    al_h = 0;
+    al_m = 0;
     alarm_set_sequence = ALARM_SEQ_IDLE;
 
     /* Ensure alarm queue exists */
@@ -33,15 +34,17 @@ void alarm_init(void)
         xAlarmQueue = xQueueCreate(1, sizeof(AlarmData_t));
     }
 
+    /* Ensure clock queue exists */
+    if (!xAlarmQtoClock) {
+        xAlarmQtoClock = xQueueCreate(1, sizeof(AlarmData_t));
+    }
     /* Publish initial alarm settings */
-    AlarmData_t a = {
-        .mode   = MODE_ALARM_SET,
-        .al_h   = al_h,
-        .al_m   = al_m,
-        .enable = enabled
-    };
+    AlarmData_t a = {.mode = MODE_ALARM_SET, .al_h = al_h, .al_m = al_m, .enable = enabled};
     if (xAlarmQueue) {
         xQueueOverwrite(xAlarmQueue, &a);
+    }
+    if (xAlarmQtoClock) {
+        xQueueOverwrite(xAlarmQtoClock, &a);
     }
     ESP_LOGI(TAG, "Alarm init: %02d:%02d, enable=%d", al_h, al_m, enabled);
 }
@@ -49,20 +52,18 @@ void alarm_init(void)
 /**
  * @brief Update alarm parameters and publish to display.
  */
-static void alarm_set_params(uint8_t hours, uint8_t minutes, bool en)
-{
-    al_h    = hours;
-    al_m    = minutes;
+static void alarm_set_params(uint8_t hours, uint8_t minutes, bool en) {
+    al_h = hours;
+    al_m = minutes;
     enabled = en;
 
-    AlarmData_t a = {
-        .mode   = current_mode,
-        .al_h   = al_h,
-        .al_m   = al_m,
-        .enable = enabled
-    };
+    AlarmData_t a = {.mode = current_mode, .al_h = al_h, .al_m = al_m, .enable = enabled};
     if (xAlarmQueue) {
         xQueueOverwrite(xAlarmQueue, &a);
+    }
+     /* Publish to clock queue */
+    if (xAlarmQtoClock) {
+        xQueueOverwrite(xAlarmQtoClock, &a);
     }
     ESP_LOGI(TAG, "Alarm set -> %02d:%02d, enable=%d", al_h, al_m, enabled);
 }
@@ -70,8 +71,7 @@ static void alarm_set_params(uint8_t hours, uint8_t minutes, bool en)
 /**
  * @brief Alarm service task: handles setting and normal alarm operation.
  */
-void alarm_task(void *pvParameters)
-{
+void alarm_task(void * pvParameters) {
     EventBits_t bits;
 
     for (;;) {
@@ -82,17 +82,17 @@ void alarm_task(void *pvParameters)
             /* Start/Stop button: increment or toggle enable */
             if (bits & EV_BIT_START_STOP) {
                 switch (alarm_set_sequence) {
-                    case ALARM_SEQ_MIN:
-                        al_m = (al_m + 1) % 60;
-                        break;
-                    case ALARM_SEQ_HR:
-                        al_h = (al_h + 1) % 24;
-                        break;
-                    case ALARM_SEQ_EN:
-                        enabled = !enabled;
-                        break;
-                    default:
-                        break;
+                case ALARM_SEQ_MIN:
+                    al_m = (al_m + 1) % 60;
+                    break;
+                case ALARM_SEQ_HR:
+                    al_h = (al_h + 1) % 24;
+                    break;
+                case ALARM_SEQ_EN:
+                    enabled = !enabled;
+                    break;
+                default:
+                    break;
                 }
                 alarm_set_params(al_h, al_m, enabled);
                 xEventGroupClearBits(xButtonEventGroup, EV_BIT_START_STOP);
@@ -111,12 +111,7 @@ void alarm_task(void *pvParameters)
 
         /* --- MODE_ALARM: publish current alarm settings --- */
         if (current_mode == MODE_ALARM) {
-            AlarmData_t a = {
-                .mode   = MODE_ALARM,
-                .al_h   = al_h,
-                .al_m   = al_m,
-                .enable = enabled
-            };
+            AlarmData_t a = {.mode = MODE_ALARM, .al_h = al_h, .al_m = al_m, .enable = enabled};
             if (xAlarmQueue) {
                 xQueueOverwrite(xAlarmQueue, &a);
             }
@@ -125,6 +120,7 @@ void alarm_task(void *pvParameters)
         /* --- MODE_ALARM_RING: handle ringing, snooze/stop elsewhere --- */
         if (current_mode == MODE_ALARM_RING) {
             /* ... existing ringing logic ... */
+          ESP_LOGI(TAG, "Alarm Ringing");
         }
 
         vTaskDelay(pdMS_TO_TICKS(10));
