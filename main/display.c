@@ -161,8 +161,11 @@ void display_task(void *pvParameters)
                 /* círculos fijos encendidos */
                 ILI9341DrawFilledCircle(160,100,5,DIGITO_ENCENDIDO);
                 ILI9341DrawFilledCircle(160,140,5,DIGITO_ENCENDIDO);
-                ILI9341DrawFilledCircle(300,100,5,DIGITO_ENCENDIDO);
-                ILI9341DrawFilledCircle(300,140,5,DIGITO_ENCENDIDO);
+                if (current_mode != MODE_CLOCK_SET)
+                  {
+                    ILI9341DrawFilledCircle(300,100,5,DIGITO_ENCENDIDO);
+                    ILI9341DrawFilledCircle(300,140,5,DIGITO_ENCENDIDO);
+                  }
             }
             uint32_t mins  = c.clk_h;  // horas
             uint32_t secs  = c.clk_m;  // minutos
@@ -170,7 +173,8 @@ void display_task(void *pvParameters)
 
             if (old_mins  != mins)  { DibujarDigito(panel_minutes,0, mins/10);  DibujarDigito(panel_minutes,1, mins%10);  old_mins  = mins; }
             if (old_secs  != secs)  { DibujarDigito(panel_seconds,0, secs/10);  DibujarDigito(panel_seconds,1, secs%10);  old_secs  = secs; }
-            if (old_tenth != tenth) { DibujarDigito(panel_tenths,0, tenth/10);  DibujarDigito(panel_tenths,1, tenth%10);  old_tenth = tenth; }
+            if (current_mode != MODE_CLOCK_SET)
+              if (old_tenth != tenth) { DibujarDigito(panel_tenths,0, tenth/10);  DibujarDigito(panel_tenths,1, tenth%10);  old_tenth = tenth; }
         }
         /* --- MODO ALARM / ALARM_SET --- */
         else if ((current_mode == MODE_ALARM || current_mode == MODE_ALARM_SET)
