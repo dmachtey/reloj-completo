@@ -80,6 +80,23 @@ panel_t CrearPanel(uint16_t x, uint16_t y, uint16_t digitos, uint16_t alto, uint
  */
 void DibujarDigito(panel_t self, uint8_t posicion, uint8_t valor);
 
+
+/**
+ * @brief   Change the “on” (lit-segment) color of a panel.
+ */
+void Panel_SetOnColor(panel_t self, uint16_t color);
+
+/**
+ * @brief   Change the “off” (unlit-segment) color of a panel.
+ */
+void Panel_SetOffColor(panel_t self, uint16_t color);
+
+/**
+ * @brief   Change the background color of a panel.
+ */
+void Panel_SetBgColor (panel_t self, uint16_t color);
+
+
 /* === End of documentation ======================================================================================== */
 
 #ifdef __cplusplus

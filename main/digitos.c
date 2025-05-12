@@ -205,4 +205,16 @@ void DibujarDigito(panel_t self, uint8_t posicion, uint8_t valor) {
     }
 }
 
+void Panel_SetOnColor(panel_t self, uint16_t color) {
+    self->encendido = color;
+}
+
+void Panel_SetOffColor(panel_t self, uint16_t color) {
+    self->apagado = color;
+}
+
+void Panel_SetBgColor(panel_t self, uint16_t color) {
+    self->fondo = color;
+}
+
 /* === End of documentation ======================================================================================== */

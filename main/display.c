@@ -101,6 +101,11 @@ void display_task(void *pvParameters)
     ChronoData_t  d            = { .mode = MODE_CHRONO, .thents = 0,       .laps = {0} };
     ClockData_t   c            = { .mode = MODE_CLOCK,  .clk_h = 0, .clk_m = 0, .clk_s = 0 };
     AlarmData_t   a            = { .mode = MODE_ALARM,  .al_h = 0, .al_m = 0, .enable = false };
+    uint32_t      blink_counter = 0;
+    bool          blink        = false;
+    bool          blink2        = false;
+    bool          blink2_changed = false;
+
 
     for (;;) {
         /* al cambiar de modo, redibuja leyenda y resetea viejos */
@@ -109,6 +114,7 @@ void display_task(void *pvParameters)
             old_mode  = current_mode;
             old_mins  = old_secs = old_tenth = 0xFFFFFFFF;
             old_laps  = 0xFFFFFFFF;
+            Panel_SetOnColor (panel_seconds, DIGITO_ENCENDIDO);
         }
 
         /* --- MODO CHRONO (sin cambios) --- */
@@ -129,8 +135,10 @@ void display_task(void *pvParameters)
                 old_tenth = tenth;
                 /* separador parpadeante */
                 circleChange++;
-                if ((circleChange > 10) | mode_changed) {
-                    circleChange = 0;
+                //if ((circleChange > 10) | mode_changed) {
+                if (blink)
+                  {
+                    //    circleChange = 0;
                     circleColor  = (circleColor == DIGITO_ENCENDIDO) ? DIGITO_APAGADO : DIGITO_ENCENDIDO;
                     ILI9341DrawFilledCircle(160,100,5,circleColor);
                     ILI9341DrawFilledCircle(160,140,5,circleColor);
@@ -171,22 +179,64 @@ void display_task(void *pvParameters)
             uint32_t secs  = c.clk_m;  // minutos
             uint32_t tenth = c.clk_s;  // segundos
 
-            if (old_mins  != mins)  { DibujarDigito(panel_minutes,0, mins/10);  DibujarDigito(panel_minutes,1, mins%10);  old_mins  = mins; }
-            if (old_secs  != secs)  { DibujarDigito(panel_seconds,0, secs/10);  DibujarDigito(panel_seconds,1, secs%10);  old_secs  = secs; }
+            if (old_mins  != mins)
+              {
+                DibujarDigito(panel_minutes,0, mins/10);
+                DibujarDigito(panel_minutes,1, mins%10);
+                old_mins  = mins;
+              }
+            if (old_secs  != secs)
+              {
+              DibujarDigito(panel_seconds,0, secs/10);
+              DibujarDigito(panel_seconds,1, secs%10);
+              old_secs  = secs;
+            }
             if (current_mode != MODE_CLOCK_SET)
-              if (old_tenth != tenth) { DibujarDigito(panel_tenths,0, tenth/10);  DibujarDigito(panel_tenths,1, tenth%10);  old_tenth = tenth; }
+              if (old_tenth != tenth)
+                {
+                  DibujarDigito(panel_tenths,0, tenth/10);
+                  DibujarDigito(panel_tenths,1, tenth%10);
+                  old_tenth = tenth;
+                }
         }
         /* --- MODO ALARM / ALARM_SET --- */
         else if ((current_mode == MODE_ALARM || current_mode == MODE_ALARM_SET)
-              && ((xQueueReceive(xAlarmQueue, &a, pdMS_TO_TICKS(2)) == pdTRUE)
-               |  mode_changed) )
+                 && ((xQueueReceive(xAlarmQueue, &a, pdMS_TO_TICKS(2)) == pdTRUE)
+                  ||  mode_changed
+                  || (current_mode == MODE_ALARM_SET
+                      && blink
+                      && (alarm_set_sequence != ALARM_SEQ_IDLE))))
         {
             if (a.mode != MODE_ALARM && a.mode != MODE_ALARM_SET) continue;
             uint32_t mins = a.al_h;  // horas de alarma
-            uint32_t secs = a.al_m;  // minutos de alarma
+            uint32_t secs = a.al_m;  // minutos de alarm
 
-            if (old_mins != mins) { DibujarDigito(panel_minutes,0, mins/10);  DibujarDigito(panel_minutes,1, mins%10);  old_mins = mins; }
-            if (old_secs != secs) { DibujarDigito(panel_seconds,0, secs/10);  DibujarDigito(panel_seconds,1, secs%10);  old_secs = secs; }
+
+
+            if (old_mins  != mins)
+              {
+                DibujarDigito(panel_minutes,0, mins/10);
+                DibujarDigito(panel_minutes,1, mins%10);
+                old_mins  = mins;
+              }
+
+
+            if ((blink2) && (current_mode == MODE_ALARM_SET)
+                && (alarm_set_sequence == ALARM_SEQ_MIN))
+              Panel_SetOnColor (panel_seconds, DIGITO_APAGADO);
+            else
+              Panel_SetOnColor (panel_seconds, DIGITO_ENCENDIDO);
+
+
+            if ((old_secs != secs) || (blink2_changed && (alarm_set_sequence == ALARM_SEQ_MIN)))
+              {
+                DibujarDigito(panel_seconds,0, secs/10);
+                DibujarDigito(panel_seconds,1, secs%10);
+                old_secs  = secs;
+              }
+
+
+
             ILI9341DrawFilledCircle(160,100,5,DIGITO_ENCENDIDO);
             ILI9341DrawFilledCircle(160,140,5,DIGITO_ENCENDIDO);
             ILI9341DrawString(30, 200,
@@ -199,6 +249,10 @@ void display_task(void *pvParameters)
 
 
         mode_changed = first_cycle = false;
+        blink_counter++;
+        blink =(!(blink_counter % 12));
+        if(!(blink_counter % 24)) blink2 = !blink2;
+        blink2_changed = (!(blink_counter % 24));
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
