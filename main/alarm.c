@@ -112,19 +112,18 @@ void alarm_task(void * pvParameters) {
         /* --- MODE_ALARM: publish current alarm settings --- */
         if (current_mode == MODE_ALARM) {
             AlarmData_t a = {.mode = MODE_ALARM, .al_h = al_h, .al_m = al_m, .enable = enabled};
-            if (xAlarmQueue) {
+            //if (xAlarmQueue) {
                 xQueueOverwrite(xAlarmQueue, &a);
-            }
+                // }
         }
 
         /* --- MODE_ALARM_RING: handle ringing, snooze/stop elsewhere --- */
         if ((current_mode == MODE_ALARM_RING)
             && (bits & EV_BIT_START_STOP)) {
-            enabled = false;
-            AlarmData_t a = {.mode = MODE_ALARM, .al_h = al_h, .al_m = al_m, .enable = enabled};
-            if (xAlarmQueue) {
-              xQueueOverwrite(xAlarmQueue, &a);
-            }
+          xEventGroupClearBits(xButtonEventGroup, EV_BIT_START_STOP);
+
+          alarm_set_params(al_h, al_m, false);
+
             current_mode = MODE_CLOCK;
 
         }

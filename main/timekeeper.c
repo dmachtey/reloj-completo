@@ -96,10 +96,10 @@ void timekeeper_task(void *pvParameters)
             continue;
         }
 
-        if (bits & EV_BIT_START_STOP) {
-            running = true;
-            ESP_LOGI(TAG, "RUNNING.....");
-        }
+        // if (bits & EV_BIT_START_STOP) {
+        //     running = true;
+        //     ESP_LOGI(TAG, "RUNNING.....");
+        // }
 
         /* --- MODO CRONÓMETRO (sin cambios) --- */
         if (current_mode == MODE_CHRONO) {
@@ -222,7 +222,7 @@ void timekeeper_task(void *pvParameters)
             (clk_h == a_set.al_h && clk_m == a_set.al_m) )
           {
             current_mode = MODE_ALARM_RING;
-            ESP_LOGI(TAG, "Alarm triggered at %02d:%02d", clk_h, clk_m);
+            //            ESP_LOGI(TAG, "Alarm triggered at %02d:%02d", clk_h, clk_m);
           }
 
 
