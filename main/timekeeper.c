@@ -63,6 +63,30 @@ void timekeeper_task(void *pvParameters)
         bool        running = (bits & EV_STATE_RUNNING) != 0;
         bool        lap     = (bits & EV_STATE_LAP)     != 0;
 
+
+        if (current_mode == MODE_CLOCK_SET) {
+            if (bits & EV_BIT_START_STOP) {
+                /* Incrementar campo actual */
+                if (clk_set_sequence == CLK_SEQ_HR) {
+                    clk_h = (clk_h + 1) % 24;
+                } else if (clk_set_sequence == CLK_SEQ_MIN) {
+                    clk_m = (clk_m + 1) % 60;
+                }
+                /* Aplicar cambio */
+                timekeeper_set_clock(clk_h, clk_m, clk_s);
+                xEventGroupClearBits(xButtonEventGroup, EV_BIT_START_STOP);
+            }
+            if (bits & EV_BIT_RESET) {
+                /* Alternar secuenciador de edición */
+                clk_set_sequence = (clk_set_sequence == CLK_SEQ_HR)
+                                   ? CLK_SEQ_MIN : CLK_SEQ_HR;
+                ESP_LOGI(TAG, "CLK_SET -> %d", clk_set_sequence);
+                xEventGroupClearBits(xButtonEventGroup, EV_BIT_RESET);
+            }
+            vTaskDelay(pdMS_TO_TICKS(50));
+            continue;
+        }
+
         if (bits & EV_BIT_START_STOP) {
             running = true;
             ESP_LOGI(TAG, "RUNNING.....");

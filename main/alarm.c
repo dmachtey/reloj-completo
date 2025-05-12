@@ -1,72 +1,132 @@
 /* File: main/alarm.c */
-#include "alarm.h"
-#include "mode_manager.h"
-#include "button_events.h"
-#include "display.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
+#include "alarm.h"
+#include "display.h"
+#include "button_events.h"
+#include "mode_manager.h"
+//#include "display_config.h"
+#include "esp_log.h"
 
-uint8_t al_h = 0, al_m = 0;
-static bool enabled = false, ringing = false;
+extern QueueHandle_t xAlarmQueue; // defined in display.c
 
+static const char *TAG = "ALARM.C";
+
+/* Alarm state */
+bool     enabled     = false;
+uint8_t  al_h        = 0;
+uint8_t  al_m        = 0;
+
+/**
+ * @brief Initialize alarm module.
+ */
 void alarm_init(void)
 {
     enabled = false;
-    ringing = false;
-}
+    al_h    = 0;
+    al_m    = 0;
+    alarm_set_sequence = ALARM_SEQ_IDLE;
 
-bool alarm_enabled(void)
-{
-    return enabled;
-}
+    /* Ensure alarm queue exists */
+    if (xAlarmQueue == NULL) {
+        xAlarmQueue = xQueueCreate(1, sizeof(AlarmData_t));
+    }
 
-void alarm_set(uint8_t hours, uint8_t minutes)
-{
-    al_h = hours;
-    al_m = minutes;
-    if (current_mode == MODE_ALARM || current_mode == MODE_ALARM_SET)
-    {
-        AlarmData_t a = { .mode = current_mode, .al_h = al_h, .al_m = al_m };
+    /* Publish initial alarm settings */
+    AlarmData_t a = {
+        .mode   = MODE_ALARM_SET,
+        .al_h   = al_h,
+        .al_m   = al_m,
+        .enable = enabled
+    };
+    if (xAlarmQueue) {
         xQueueOverwrite(xAlarmQueue, &a);
     }
-    else
-    {
-        AlarmData_t d;
-        xQueueReceive(xAlarmQueue, &d, 0);
-    }
+    ESP_LOGI(TAG, "Alarm init: %02d:%02d, enable=%d", al_h, al_m, enabled);
 }
 
+/**
+ * @brief Update alarm parameters and publish to display.
+ */
+static void alarm_set_params(uint8_t hours, uint8_t minutes, bool en)
+{
+    al_h    = hours;
+    al_m    = minutes;
+    enabled = en;
+
+    AlarmData_t a = {
+        .mode   = current_mode,
+        .al_h   = al_h,
+        .al_m   = al_m,
+        .enable = enabled
+    };
+    if (xAlarmQueue) {
+        xQueueOverwrite(xAlarmQueue, &a);
+    }
+    ESP_LOGI(TAG, "Alarm set -> %02d:%02d, enable=%d", al_h, al_m, enabled);
+}
+
+/**
+ * @brief Alarm service task: handles setting and normal alarm operation.
+ */
 void alarm_task(void *pvParameters)
 {
-    for (;;)
-    {
-        // EventBits_t bits = xEventGroupWaitBits(
-        //     xButtonEventGroup,
-        //     EV_BIT_START_STOP | EV_BIT_RESET,
-        //     pdTRUE,
-        //     pdFALSE,
-        //     portMAX_DELAY
-        // );
-        // if (bits & EV_BIT_START_STOP)
-        // {
-        //     enabled = !enabled;
-        //     ringing = false;
-        //     if (!enabled && current_mode == MODE_ALARM_RING)
-        //         current_mode = MODE_CLOCK;
-        //     AlarmData_t a = { .mode = current_mode, .al_h = al_h, .al_m = al_m };
-        //     xQueueOverwrite(xAlarmQueue, &a);
-        // }
-        // else if (bits & EV_BIT_RESET)
-        // {
-        //     int total = al_h * 60 + al_m + 5;
-        //     al_h = (total / 60) % 24;
-        //     al_m = total % 60;
-        //     ringing = false;
-        //     current_mode = MODE_CLOCK;
-        //     AlarmData_t a = { .mode = current_mode, .al_h = al_h, .al_m = al_m };
-        //     xQueueOverwrite(xAlarmQueue, &a);
-        // }
-        vTaskDelay(pdMS_TO_TICKS(100));
+    EventBits_t bits;
+
+    for (;;) {
+        bits = xEventGroupGetBits(xButtonEventGroup);
+
+        /* --- MODE_ALARM_SET: adjust hours, minutes, enable flag --- */
+        if (current_mode == MODE_ALARM_SET) {
+            /* Start/Stop button: increment or toggle enable */
+            if (bits & EV_BIT_START_STOP) {
+                switch (alarm_set_sequence) {
+                    case ALARM_SEQ_MIN:
+                        al_m = (al_m + 1) % 60;
+                        break;
+                    case ALARM_SEQ_HR:
+                        al_h = (al_h + 1) % 24;
+                        break;
+                    case ALARM_SEQ_EN:
+                        enabled = !enabled;
+                        break;
+                    default:
+                        break;
+                }
+                alarm_set_params(al_h, al_m, enabled);
+                xEventGroupClearBits(xButtonEventGroup, EV_BIT_START_STOP);
+            }
+
+            /* Reset button: advance sequencer */
+            if (bits & EV_BIT_RESET) {
+                alarm_set_sequence = (alarm_set_sequence + 1) % 4;
+                xEventGroupClearBits(xButtonEventGroup, EV_BIT_RESET);
+            }
+
+            /* Debounce / pacing */
+            vTaskDelay(pdMS_TO_TICKS(50));
+            continue;
+        }
+
+        /* --- MODE_ALARM: publish current alarm settings --- */
+        if (current_mode == MODE_ALARM) {
+            AlarmData_t a = {
+                .mode   = MODE_ALARM,
+                .al_h   = al_h,
+                .al_m   = al_m,
+                .enable = enabled
+            };
+            if (xAlarmQueue) {
+                xQueueOverwrite(xAlarmQueue, &a);
+            }
+        }
+
+        /* --- MODE_ALARM_RING: handle ringing, snooze/stop elsewhere --- */
+        if (current_mode == MODE_ALARM_RING) {
+            /* ... existing ringing logic ... */
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }

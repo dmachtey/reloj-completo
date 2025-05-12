@@ -168,7 +168,6 @@ void display_task(void *pvParameters)
                  ||  mode_changed
                  || ((current_mode == MODE_CLOCK_SET) && blink)))
 
-
       {
         if (c.mode != MODE_CLOCK && c.mode != MODE_CLOCK_SET) continue;
         if (mode_changed) {
