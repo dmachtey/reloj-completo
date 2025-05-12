@@ -1,5 +1,6 @@
 /* File: main/display.c */
 #include "display.h"
+#include "button_events.h"
 #include "display_config.h"
 #include "ili9341.h"
 #include "digitos.h"
@@ -47,12 +48,19 @@ static void draw_static_legend(app_mode_t mode) {
         break;
 
     case MODE_ALARM:
+      ILI9341DrawString(350, 10, "ALARM", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
+      ILI9341DrawString(10, 300, "PB3: MODE", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
+      ILI9341DrawString(140, 300, "", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
+      ILI9341DrawString(280, 300, "", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
+      break;
+
     case MODE_ALARM_RING:
-        ILI9341DrawString(350, 10, "ALARM", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
+        ILI9341DrawString(350, 10, "ALARM RING", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
         ILI9341DrawString(10, 300, "PB3: MODE", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
         ILI9341DrawString(140, 300, "PB2: SNOOZE", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
         ILI9341DrawString(280, 300, "PB1: STOP", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
         break;
+
 
     case MODE_ALARM_SET:
         ILI9341DrawString(350, 10, "AL-SET", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
@@ -111,6 +119,7 @@ void display_task(void * pvParameters) {
             old_mins = old_secs = old_tenth = 0xFFFFFFFF;
             old_laps = 0xFFFFFFFF;
         }
+
 
         /* --- MODO CHRONO (sin cambios) --- */
         if (current_mode == MODE_CHRONO &&
@@ -251,7 +260,7 @@ void display_task(void * pvParameters) {
 
             ILI9341DrawFilledCircle(160, 100, 5, DIGITO_ENCENDIDO);
             ILI9341DrawFilledCircle(160, 140, 5, DIGITO_ENCENDIDO);
-            ILI9341DrawString(30, 200, a.enable ? "ENABLE" : "DISABLE", &font_16x26,
+            ILI9341DrawString(30, 200, a.enable ? "ENABLE " : "DISABLE", &font_16x26,
                               (blink2 && (alarm_set_sequence == ALARM_SEQ_EN)) ? DIGITO_APAGADO : DIGITO_ENCENDIDO,
                               DIGITO_FONDO);
         }

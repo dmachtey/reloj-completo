@@ -7,6 +7,7 @@
 #include "button_events.h"
 #include "display.h"
 #include "mode_manager.h"
+#include <stdint.h>
 #include <string.h>
 #include "esp_log.h"
 
@@ -73,6 +74,11 @@ void timekeeper_task(void *pvParameters)
         bool        lap     = (bits & EV_STATE_LAP)     != 0;
 
 
+        bits    = xEventGroupGetBits(xButtonEventGroup);
+        if (bits & EV_BIT_RESET)
+          ESP_LOGI(TAG, "RESET PRESSED");
+
+
         if (current_mode == MODE_CLOCK_SET) {
             if (bits & EV_BIT_START_STOP) {
                 /* Incrementar campo actual */
@@ -86,6 +92,7 @@ void timekeeper_task(void *pvParameters)
                 xEventGroupClearBits(xButtonEventGroup, EV_BIT_START_STOP);
             }
             if (bits & EV_BIT_RESET) {
+                 ESP_LOGI(TAG, "RESET PRESSED Alternar secuenciador");
                 /* Alternar secuenciador de edición */
                 clk_set_sequence = (clk_set_sequence == CLK_SEQ_HR)
                                    ? CLK_SEQ_MIN : CLK_SEQ_HR;
@@ -164,6 +171,7 @@ void timekeeper_task(void *pvParameters)
                     laps[0] = laps[1] = laps[2] = laps[3] = 0;
                     xSemaphoreGive(sem_laps);
                 }
+                ESP_LOGI(TAG, "Chrono reset");
                 xEventGroupClearBits(xButtonEventGroup, EV_STATE_LAP | EV_BIT_RESET);
                 d.thents = thents;
                 memcpy(d.laps, laps, sizeof(laps));
@@ -217,13 +225,27 @@ void timekeeper_task(void *pvParameters)
            ESP_LOGI(TAG, "Alarm updated: %02d:%02d enable=%d", a_set.al_h, a_set.al_m, a_set.enable);
         }
 
+        /* Alarm Snooze 5 min */
+        if ((current_mode == MODE_ALARM_RING) && (bits & EV_BIT_RESET)) {
+          xEventGroupClearBits(xButtonEventGroup, EV_BIT_RESET);
+          // Add 5 minutes to the current time (in total minutes)
+          uint32_t total_min = a_set.al_h * 60 + a_set.al_m + 5;
+
+          // Wrap around within a 24-hour period (24*60 = 1440 minutes)
+          total_min %= 24 * 60;
+
+          // Convert back to hours and minutes
+          a_set.al_h = total_min / 60;    // yields a value in 0–23
+          a_set.al_m = total_min % 60;    // yields a value in 0–59
+          current_mode = MODE_CLOCK;
+          ESP_LOGI(TAG, "Snooze pressed");
+        }
+
           /* Check alarm trigger: if current time >= alarm time */
         if ((a_set.enable) &&
             (clk_h == a_set.al_h && clk_m == a_set.al_m) )
-          {
-            current_mode = MODE_ALARM_RING;
-            //            ESP_LOGI(TAG, "Alarm triggered at %02d:%02d", clk_h, clk_m);
-          }
+          current_mode = MODE_ALARM_RING;
+
 
 
         /* Mantiene periodo de 10 ms */

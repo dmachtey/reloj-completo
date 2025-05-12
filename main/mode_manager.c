@@ -55,13 +55,14 @@ void mode_manager_task(void *pvParameters)
             xButtonEventGroup,
             EV_BIT_FUNC_CHANGE  /* PB3 */
           | EV_BIT_RESET,      /* PB2 */
-            pdTRUE,             /* limpia los bits al salir */
+            pdFALSE,             /* limpia los bits al salir */
             pdFALSE,
             portMAX_DELAY
         );
 
         /* --- Cambio de modo principal (PB3) --- */
         if (bits & EV_BIT_FUNC_CHANGE) {
+          xEventGroupClearBits(xButtonEventGroup, EV_BIT_FUNC_CHANGE);
             ESP_LOGI(TAG, "PB3 pressed, current_mode = %s",
                      mode_to_string(current_mode));
             switch (current_mode) {
@@ -87,9 +88,11 @@ void mode_manager_task(void *pvParameters)
 
         /* --- Avanza secuenciador secundario (PB2) sólo en SET-modos --- */
         if (bits & EV_BIT_RESET) {
+          xEventGroupClearBits(xButtonEventGroup, EV_BIT_RESET);
             if (current_mode == MODE_CLOCK_SET) {
                 clk_set_sequence = (clk_set_sequence + 1) % 3;
                 ESP_LOGI(TAG, "CLK_SET sequencer -> %d", clk_set_sequence);
+
             }
             else if (current_mode == MODE_ALARM_SET) {
                 alarm_set_sequence = (alarm_set_sequence + 1) % 4;

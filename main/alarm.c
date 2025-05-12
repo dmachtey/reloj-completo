@@ -77,6 +77,11 @@ void alarm_task(void * pvParameters) {
     for (;;) {
         bits = xEventGroupGetBits(xButtonEventGroup);
 
+        if (bits & EV_BIT_RESET)
+          ESP_LOGI(TAG, "RESET PRESSED");
+
+
+
         /* --- MODE_ALARM_SET: adjust hours, minutes, enable flag --- */
         if (current_mode == MODE_ALARM_SET) {
             /* Start/Stop button: increment or toggle enable */
