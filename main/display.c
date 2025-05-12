@@ -257,7 +257,7 @@ void display_task(void * pvParameters) {
         }
         if (current_mode == MODE_ALARM_RING && blink){
 
-          ILI9341DrawString(30, 100, "RING", &font_42x35,
+          ILI9341DrawString(30, 200, "RING", &font_16x26,
                             (blink2) ? DIGITO_APAGADO : DIGITO_ENCENDIDO,
                             DIGITO_FONDO);
         }

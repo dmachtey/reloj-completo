@@ -50,6 +50,6 @@ extern Font_t font_11x18;
  */
 extern Font_t font_16x26;
 
-extern Font_t font_42x35;
+//extern Font_t font_42x35;
 
 #endif /* FONTS_H_ */
