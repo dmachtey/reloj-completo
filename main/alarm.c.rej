@@ -1,0 +1,20 @@
+diff a/main/alarm.c b/main/alarm.c	(rejected hunks)
+@@ -118,9 +118,15 @@ void alarm_task(void * pvParameters) {
+         }
+ 
+         /* --- MODE_ALARM_RING: handle ringing, snooze/stop elsewhere --- */
+-        if (current_mode == MODE_ALARM_RING) {
+-            /* ... existing ringing logic ... */
+-          ESP_LOGI(TAG, "Alarm Ringing");
++        if ((current_mode == MODE_ALARM_RING)
++            && (bits & EV_BIT_START_STOP)) {
++            enabled = false;
++            AlarmData_t a = {.mode = MODE_ALARM, .al_h = al_h, .al_m = al_m, .enable = enabled};
++            if (xAlarmQueue) {
++              xQueueOverwrite(xAlarmQueue, &a);
++            }
++            current_mode = MODE_CLOCK;
++
+         }
+ 
+         vTaskDelay(pdMS_TO_TICKS(10));
