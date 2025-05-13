@@ -48,11 +48,11 @@ static void draw_static_legend(app_mode_t mode) {
         break;
 
     case MODE_ALARM:
-      ILI9341DrawString(350, 10, "ALARM", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
-      ILI9341DrawString(10, 300, "PB3: MODE", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
-      ILI9341DrawString(140, 300, "", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
-      ILI9341DrawString(280, 300, "", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
-      break;
+        ILI9341DrawString(350, 10, "ALARM", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
+        ILI9341DrawString(10, 300, "PB3: MODE", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
+        ILI9341DrawString(140, 300, "", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
+        ILI9341DrawString(280, 300, "", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
+        break;
 
     case MODE_ALARM_RING:
         ILI9341DrawString(350, 10, "ALARM RING", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
@@ -60,7 +60,6 @@ static void draw_static_legend(app_mode_t mode) {
         ILI9341DrawString(140, 300, "PB2: SNOOZE", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
         ILI9341DrawString(280, 300, "PB1: STOP", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
         break;
-
 
     case MODE_ALARM_SET:
         ILI9341DrawString(350, 10, "AL-SET", &font_7x10, ILI9341_WHITE, DIGITO_FONDO);
@@ -120,7 +119,6 @@ void display_task(void * pvParameters) {
             old_laps = 0xFFFFFFFF;
         }
 
-
         /* --- MODO CHRONO (sin cambios) --- */
         if (current_mode == MODE_CHRONO &&
             ((xQueueReceive(xChronoQueue, &d, pdMS_TO_TICKS(2)) == pdTRUE) | mode_changed)) {
@@ -146,9 +144,7 @@ void display_task(void * pvParameters) {
                 old_tenth = tenth;
                 /* separador parpadeante */
                 circleChange++;
-                // if ((circleChange > 10) | mode_changed) {
                 if (blink) {
-                    //    circleChange = 0;
                     circleColor = (circleColor == DIGITO_ENCENDIDO) ? DIGITO_APAGADO : DIGITO_ENCENDIDO;
                     ILI9341DrawFilledCircle(160, 100, 5, circleColor);
                     ILI9341DrawFilledCircle(160, 140, 5, circleColor);
@@ -243,7 +239,6 @@ void display_task(void * pvParameters) {
                 DibujarDigito(panel_minutes, 0, mins / 10);
                 DibujarDigito(panel_minutes, 1, mins % 10);
                 old_mins = mins;
-                // old_alarm_seq = alarm_set_sequence;
             }
 
             Panel_SetOnColor(panel_seconds, DIGITO_ENCENDIDO);
@@ -264,11 +259,9 @@ void display_task(void * pvParameters) {
                               (blink2 && (alarm_set_sequence == ALARM_SEQ_EN)) ? DIGITO_APAGADO : DIGITO_ENCENDIDO,
                               DIGITO_FONDO);
         }
-        if (current_mode == MODE_ALARM_RING && blink){
+        if (current_mode == MODE_ALARM_RING && blink) {
 
-          ILI9341DrawString(30, 200, "RING", &font_16x26,
-                            (blink2) ? DIGITO_APAGADO : DIGITO_ENCENDIDO,
-                            DIGITO_FONDO);
+            ILI9341DrawString(30, 200, "RING", &font_16x26, (blink2) ? DIGITO_APAGADO : DIGITO_ENCENDIDO, DIGITO_FONDO);
         }
 
         mode_changed = first_cycle = false;

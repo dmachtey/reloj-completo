@@ -9,9 +9,8 @@
 #include "timekeeper.h"
 #include "esp_log.h"
 
-extern QueueHandle_t xAlarmQueue; // defined in display.c
-extern QueueHandle_t xAlarmQtoClock;  // new queue for timekeeper module
-
+extern QueueHandle_t xAlarmQueue;    // defined in display.c
+extern QueueHandle_t xAlarmQtoClock; // new queue for timekeeper module
 
 static const char * TAG = "ALARM.C";
 
@@ -61,11 +60,10 @@ static void alarm_set_params(uint8_t hours, uint8_t minutes, bool en) {
     if (xAlarmQueue) {
         xQueueOverwrite(xAlarmQueue, &a);
     }
-     /* Publish to clock queue */
+    /* Publish to clock queue */
     if (xAlarmQtoClock) {
         xQueueOverwrite(xAlarmQtoClock, &a);
     }
-    ESP_LOGI(TAG, "Alarm set -> %02d:%02d, enable=%d", al_h, al_m, enabled);
 }
 
 /**
@@ -76,11 +74,6 @@ void alarm_task(void * pvParameters) {
 
     for (;;) {
         bits = xEventGroupGetBits(xButtonEventGroup);
-
-        if (bits & EV_BIT_RESET)
-          ESP_LOGI(TAG, "RESET PRESSED");
-
-
 
         /* --- MODE_ALARM_SET: adjust hours, minutes, enable flag --- */
         if (current_mode == MODE_ALARM_SET) {
@@ -117,20 +110,18 @@ void alarm_task(void * pvParameters) {
         /* --- MODE_ALARM: publish current alarm settings --- */
         if (current_mode == MODE_ALARM) {
             AlarmData_t a = {.mode = MODE_ALARM, .al_h = al_h, .al_m = al_m, .enable = enabled};
-            //if (xAlarmQueue) {
-                xQueueOverwrite(xAlarmQueue, &a);
-                // }
+            // if (xAlarmQueue) {
+            xQueueOverwrite(xAlarmQueue, &a);
+            // }
         }
 
         /* --- MODE_ALARM_RING: handle ringing, snooze/stop elsewhere --- */
-        if ((current_mode == MODE_ALARM_RING)
-            && (bits & EV_BIT_START_STOP)) {
-          xEventGroupClearBits(xButtonEventGroup, EV_BIT_START_STOP);
+        if ((current_mode == MODE_ALARM_RING) && (bits & EV_BIT_START_STOP)) {
+            xEventGroupClearBits(xButtonEventGroup, EV_BIT_START_STOP);
 
-          alarm_set_params(al_h, al_m, false);
+            alarm_set_params(al_h, al_m, false);
 
             current_mode = MODE_CLOCK;
-
         }
 
         vTaskDelay(pdMS_TO_TICKS(10));

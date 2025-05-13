@@ -28,11 +28,10 @@
 /**
  * @brief  Font structure
  */
-typedef struct
-{
-	uint8_t FontWidth;    /*!< Font width in pixels */
-	uint8_t FontHeight;   /*!< Font height in pixels */
-	const uint16_t *data; /*!< Pointer to data font data array */
+typedef struct {
+    uint8_t FontWidth;     /*!< Font width in pixels */
+    uint8_t FontHeight;    /*!< Font height in pixels */
+    const uint16_t * data; /*!< Pointer to data font data array */
 } Font_t;
 
 /**
@@ -50,6 +49,6 @@ extern Font_t font_11x18;
  */
 extern Font_t font_16x26;
 
-//extern Font_t font_42x35;
+// extern Font_t font_42x35;
 
 #endif /* FONTS_H_ */

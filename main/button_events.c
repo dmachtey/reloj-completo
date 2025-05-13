@@ -4,15 +4,14 @@
 #include "esp_log.h"
 #include "driver/gpio.h"
 
-#define AUTO_REPEAT_INITIAL_DELAY   pdMS_TO_TICKS(500)  // medio segundo antes de empezar
-#define AUTO_REPEAT_PERIOD          pdMS_TO_TICKS(200)  // repite cada 200 ms
+#define AUTO_REPEAT_INITIAL_DELAY pdMS_TO_TICKS(500) // medio segundo antes de empezar
+#define AUTO_REPEAT_PERIOD        pdMS_TO_TICKS(200) // repite cada 200 ms
 
-static const char *TAG = "BTN_EVT";
+static const char * TAG = "BTN_EVT";
 
 EventGroupHandle_t xButtonEventGroup = NULL;
 
-void button_events_init(void)
-{
+void button_events_init(void) {
     xButtonEventGroup = xEventGroupCreate();
     if (xButtonEventGroup == NULL) {
         ESP_LOGE(TAG, "Failed to create event group");
@@ -30,19 +29,17 @@ void button_events_init(void)
     ESP_LOGI(TAG, "Button event group initialized");
 }
 
-
-void button_events_task(void *pvParameters)
-{
+void button_events_task(void * pvParameters) {
     TickType_t lastWake = xTaskGetTickCount();
-    bool      pb1_prev = true, pb2_prev = true;
+    bool pb1_prev = true, pb2_prev = true;
     TickType_t pressTime1 = 0;
-    int  prev_func = 1;
+    int prev_func = 1;
 
     for (;;) {
         // Lee el GPIO (activo bajo)
         bool pb1 = (gpio_get_level(BUTTON_PIN_START_STOP) == 0);
         bool pb2 = (gpio_get_level(BUTTON_PIN_RESET) == 0);
-        int cur_func  = gpio_get_level(BUTTON_PIN_FUNC);
+        int cur_func = gpio_get_level(BUTTON_PIN_FUNC);
 
         // PB1: START/STOP
         if (pb1 && !pb1_prev) {
@@ -50,8 +47,7 @@ void button_events_task(void *pvParameters)
             xEventGroupSetBits(xButtonEventGroup, EV_BIT_START_STOP);
             pressTime1 = lastWake;
             ESP_LOGI(TAG, "START button pressed");
-        }
-        else if (pb1 && pb1_prev) {
+        } else if (pb1 && pb1_prev) {
             // Si lo dejamos pulsado y superó el initial delay, repite
             if ((lastWake - pressTime1) >= AUTO_REPEAT_INITIAL_DELAY) {
                 // ¿Es momento de repetir?
@@ -65,16 +61,14 @@ void button_events_task(void *pvParameters)
 
         // PB2: RESET
         if (pb2 == 0 && pb2_prev == 1) {
-          ESP_LOGI(TAG, "RESET button pressed");
-          xEventGroupSetBits(xButtonEventGroup, EV_BIT_RESET);
+            ESP_LOGI(TAG, "RESET button pressed");
+            xEventGroupSetBits(xButtonEventGroup, EV_BIT_RESET);
         }
-
 
         if (cur_func == 0 && prev_func == 1) {
-          ESP_LOGI(TAG, "MODE (FUNC) button pressed");
-          xEventGroupSetBits(xButtonEventGroup, EV_BIT_FUNC_CHANGE);
+            ESP_LOGI(TAG, "MODE (FUNC) button pressed");
+            xEventGroupSetBits(xButtonEventGroup, EV_BIT_FUNC_CHANGE);
         }
-
 
         pb1_prev = pb1;
         pb2_prev = pb2;

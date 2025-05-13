@@ -391,7 +391,7 @@ void ILI9341Init(void) {
     // Initialize non-SPI GPIOs
     gpio_config_t io_conf = {};
     io_conf.pin_bit_mask =
-        ((1ULL << ILI9341_PIN_NUM_DC)  | (1ULL << ILI9341_PIN_NUM_BCKL)); //| (1ULL << ILI9341_PIN_NUM_RST)
+        ((1ULL << ILI9341_PIN_NUM_DC) | (1ULL << ILI9341_PIN_NUM_BCKL)); //| (1ULL << ILI9341_PIN_NUM_RST)
     io_conf.mode = GPIO_MODE_OUTPUT;
     io_conf.pull_up_en = true;
     gpio_config(&io_conf);
@@ -403,8 +403,8 @@ void ILI9341Init(void) {
     vTaskDelay(10 / portTICK_PERIOD_MS);
 
     /* It will be necessary to wait 5msec before sending new command following software reset */
-    //WriteLCD(&lcd_reset);
-    //vTaskDelay(10 / portTICK_PERIOD_MS);
+    // WriteLCD(&lcd_reset);
+    // vTaskDelay(10 / portTICK_PERIOD_MS);
 
     /* Send initial configuration to LCD */
     for (uint8_t i = 0; i < sizeof(lcd_init) / sizeof(lcd_cmd_t); i++) {

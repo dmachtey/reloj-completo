@@ -39,19 +39,17 @@ extern "C" {
 
 /* === Public macros definitions =============================================================== */
 
-    #define LCD_SPI_CLK            GPIO_NUM_14         // CLK (Reloj SPI)
-    #define LCD_SPI_MOSI           GPIO_NUM_13         // MOSI (Datos enviados al LCD)
-    #define LCD_SPI_MISO           GPIO_NUM_12         // MISO (No necesario para LCD, pero puede usarse para debug)
-    #define LCD_DC                 GPIO_NUM_2          // DC (Data/Command)
-    #define LCD_CS                 GPIO_NUM_15          // CS (Chip Select)
-    #define LCD_RESET              GPIO_NUM_NC         // Reset (opcional, puede ser GPIO_NUM_NC si no se usa)
-    #define LCD_BUSY               GPIO_NUM_NC         // Busy (no usado en ILI9341)
+#define LCD_SPI_CLK               GPIO_NUM_14 // CLK (Reloj SPI)
+#define LCD_SPI_MOSI              GPIO_NUM_13 // MOSI (Datos enviados al LCD)
+#define LCD_SPI_MISO              GPIO_NUM_12 // MISO (No necesario para LCD, pero puede usarse para debug)
+#define LCD_DC                    GPIO_NUM_2  // DC (Data/Command)
+#define LCD_CS                    GPIO_NUM_15 // CS (Chip Select)
+#define LCD_RESET                 GPIO_NUM_NC // Reset (opcional, puede ser GPIO_NUM_NC si no se usa)
+#define LCD_BUSY                  GPIO_NUM_NC // Busy (no usado en ILI9341)
 
-    // Retroiluminación (backlight)
-    #define LCD_BACKLIGHT          GPIO_NUM_27         // Control de backlight (PWM opcional)
-    #define LCD_BACKLIGHT_LEDC_CH  1                  // Canal LEDC para PWM (si se usa)
-
-
+// Retroiluminación (backlight)
+#define LCD_BACKLIGHT             GPIO_NUM_27 // Control de backlight (PWM opcional)
+#define LCD_BACKLIGHT_LEDC_CH     1           // Canal LEDC para PWM (si se usa)
 
 /* LCD pin conections */
 #define ILI9341_SPI_PORT          SPI2_HOST
